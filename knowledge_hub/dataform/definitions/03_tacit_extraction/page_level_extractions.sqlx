@@ -1,0 +1,115 @@
+config {
+  type: "operations",
+  hasOutput: true,
+  schema: "kg_knowledge_hub",
+  name: "page_level_extractions",
+  description: "Page-by-page tacit knowledge extraction using generic triples output format.",
+  dependencies: ["document_master_record", "gemini_pro"]
+}
+
+DECLARE pending_docs INT64;
+
+CREATE TABLE IF NOT EXISTS ${self()} (
+  file_id STRING,
+  original_filename STRING,
+  page_num INT64,
+  extracted_nodes ARRAY<STRUCT<node_name STRING, ontology_class STRING, properties STRING>>,
+  extracted_edges ARRAY<STRUCT<source_node_name STRING, target_node_name STRING, ontological_relationship STRING, evidence_insight STRING>>
+);
+
+LOOP
+  SET pending_docs = (
+    SELECT COUNT(1) 
+    FROM ${ref("document_master_record")}
+    -- Process both TACIT_REPORT and ELN_DATA for the Hackathon Demo
+    WHERE JSON_EXTRACT_SCALAR(pipeline_lineage_tags, '$.ontology_class') IN ('Experiment_Report', 'Experiment_Data_Set', 'PlanSpecification')
+      AND processing_status = 'ROUTED'
+      AND file_id NOT IN (SELECT DISTINCT file_id FROM ${self()})
+  );
+
+  IF pending_docs = 0 THEN
+    LEAVE;
+  END IF;
+
+  INSERT INTO ${self()}
+  WITH target_docs AS (
+    SELECT 
+      file_id, 
+      gcs_landing_uri,
+      original_filename
+    FROM ${ref("document_master_record")}
+    WHERE JSON_EXTRACT_SCALAR(pipeline_lineage_tags, '$.ontology_class') IN ('Experiment_Report', 'Experiment_Data_Set', 'PlanSpecification')
+      AND processing_status = 'ROUTED'
+      AND file_id NOT IN (SELECT DISTINCT file_id FROM ${self()})
+    LIMIT 1 -- Batch process 1 document at a time to prevent transaction timeouts with large page counts
+  ),
+  pages AS (
+    SELECT 
+      file_id, 
+      gcs_landing_uri, 
+      original_filename, 
+      page_num
+    FROM target_docs
+    -- Process exactly the number of pages in the document to prevent LLM hallucination on non-existent pages.
+    -- NOTE: In a production environment, you should extract the true page count via a BigQuery UDF or 
+    -- during the ingestion phase. For this reference architecture, we assume a maximum of 50 pages.
+    CROSS JOIN UNNEST(GENERATE_ARRAY(1, 50)) AS page_num
+  ),
+  ai_processing AS (
+    SELECT
+      file_id,
+      original_filename,
+      page_num,
+      AI.GENERATE(
+        prompt => STRUCT(
+          OBJ.MAKE_REF(gcs_landing_uri) AS document,
+          FORMAT("""
+          You are an expert Data Extraction Agent at ACME.
+          Analyze ONLY the contents of PAGE %d of the provided document. Ignore all other pages.
+          
+          CRITICAL INSTRUCTION: If the document has fewer than %d pages, or if PAGE %d is completely blank, or if there is absolutely no useful information on this specific page, YOU MUST OUTPUT an empty JSON object: {}
+          Do not hallucinate or guess what might be on this page. If it doesn't exist, return {}.
+          
+          Otherwise, extract ALL relevant Knowledge from this page as a Generic Property Graph (Triples).
+          Align the extraction STRICTLY to the kg.owl ontology structures.
+          
+          Output ONLY a valid JSON object following this exact schema:
+          {
+            "extracted_nodes": [
+              {
+                "node_name": "String (e.g., Toluene, Bioreactor-A, or MOL-035A)",
+                "ontology_class": "String (MUST exactly match a Class in kg.owl)",
+                "properties": "String (JSON string of any specific attributes like status, values, observations)"
+              }
+            ],
+            "extracted_edges": [
+              {
+                "source_node_name": "String (MUST match a node_name above)",
+                "target_node_name": "String (MUST match a node_name above)",
+                "ontological_relationship": "String (MUST exactly match a Relationship in kg.owl)",
+                "evidence_insight": "String (The tacit knowledge or textual evidence connecting them from the page)"
+              }
+            ]
+          }
+
+          """, page_num, page_num, page_num) AS text
+        ),
+        output_schema => 'extracted_nodes ARRAY<STRUCT<node_name STRING, ontology_class STRING, properties STRING>>, extracted_edges ARRAY<STRUCT<source_node_name STRING, target_node_name STRING, ontological_relationship STRING, evidence_insight STRING>>',
+        endpoint => 'gemini-2.5-pro',
+        connection_id => '${dataform.projectConfig.vars.connection_id}',
+        model_params => JSON FORMAT('''{"generationConfig": {"temperature": 0.0, "maxOutputTokens": 8192, "responseMimeType": "application/json"}, "cachedContent": "projects/%s/locations/%s/cachedContents/%s"}''', '${dataform.projectConfig.vars.project_id}', '${dataform.projectConfig.vars.location}', '${dataform.projectConfig.vars.ontology_cache_id}')
+      ) AS extracted_data
+    FROM pages
+  )
+  SELECT 
+    file_id,
+    original_filename,
+    page_num,
+    extracted_data.extracted_nodes,
+    extracted_data.extracted_edges
+  FROM ai_processing
+  -- Filter out pages where Gemini found nothing (both arrays empty or null)
+  WHERE ARRAY_LENGTH(extracted_data.extracted_nodes) > 0 
+     OR ARRAY_LENGTH(extracted_data.extracted_edges) > 0;
+     
+END LOOP;

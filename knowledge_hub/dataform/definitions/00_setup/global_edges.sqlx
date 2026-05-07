@@ -1,0 +1,15 @@
+config {
+  type: "operations",
+  hasOutput: true,
+  schema: "kg_graph_data",
+  name: "global_edges",
+  description: "Unified table for all graph edges."
+}
+
+CREATE TABLE IF NOT EXISTS ${self()} (
+    edge_id STRING NOT NULL,
+    source_node_id STRING,
+    target_node_id STRING,
+    relationship_type STRING,
+    evidence_insight STRING
+);

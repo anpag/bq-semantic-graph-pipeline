@@ -1,0 +1,62 @@
+config {
+  type: "operations",
+  hasOutput: true,
+  schema: "kg_graph_data",
+  name: "insert_global_graph",
+  description: "Merge generic extracted nodes and edges from page level extractions.",
+  dependencies: ["page_level_extractions", "global_nodes", "global_edges", "embedding_model"]
+}
+
+TRUNCATE TABLE ${ref("global_nodes")};
+TRUNCATE TABLE ${ref("global_edges")};
+
+-- 1. Insert Nodes
+INSERT INTO ${ref("global_nodes")}
+(node_id, file_id, page_num, name, ontology_class, properties, embedding)
+WITH unnested_nodes AS (
+  SELECT DISTINCT
+    file_id,
+    page_num,
+    node.node_name,
+    node.ontology_class,
+    node.properties
+  FROM ${ref("page_level_extractions")},
+  UNNEST(extracted_nodes) AS node
+  WHERE node.node_name IS NOT NULL
+),
+formatted_nodes AS (
+  SELECT DISTINCT
+    TO_HEX(MD5(UPPER(TRIM(node_name)))) AS node_id,
+    file_id,
+    page_num,
+    TRIM(node_name) AS name,
+    TRIM(ontology_class) AS ontology_class,
+    properties
+  FROM unnested_nodes
+)
+SELECT
+  node_id,
+  file_id,
+  page_num,
+  name,
+  ontology_class,
+  properties,
+  ml_generate_embedding_result AS embedding
+FROM ML.GENERATE_EMBEDDING(
+  MODEL ${ref("embedding_model")},
+  (SELECT node_id, name, ontology_class, properties, FORMAT('%s (%s): %s', name, ontology_class, properties) AS content FROM formatted_nodes),
+  STRUCT(TRUE AS flatten_json_output)
+);
+
+-- 2. Insert Edges
+INSERT INTO ${ref("global_edges")}
+(edge_id, source_node_id, target_node_id, relationship_type, evidence_insight)
+SELECT DISTINCT
+  GENERATE_UUID() AS edge_id,
+  TO_HEX(MD5(UPPER(TRIM(edge.source_node_name)))) AS source_node_id,
+  TO_HEX(MD5(UPPER(TRIM(edge.target_node_name)))) AS target_node_id,
+  TRIM(edge.ontological_relationship) AS relationship_type,
+  edge.evidence_insight
+FROM ${ref("page_level_extractions")},
+UNNEST(extracted_edges) AS edge
+WHERE edge.source_node_name IS NOT NULL AND edge.target_node_name IS NOT NULL;

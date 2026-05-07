@@ -1,0 +1,53 @@
+config {
+  type: "operations",
+  hasOutput: true,
+  schema: "kg_knowledge_hub",
+  name: "route_landing_files",
+  description: "AI Router that processes all new files natively bypassing signed-links using AI.GENERATE.",
+  dependencies: ["raw_landing_objects", "document_master_record"]
+}
+
+INSERT INTO ${ref("document_master_record")} 
+(file_id, original_filename, gcs_landing_uri, submitter_id, processing_status, pipeline_lineage_tags)
+WITH new_files AS (
+  SELECT 
+    uri,
+    ARRAY_REVERSE(SPLIT(uri, '/'))[OFFSET(0)] as original_filename
+  FROM ${ref("raw_landing_objects")}
+  WHERE uri NOT IN (SELECT gcs_landing_uri FROM ${ref("document_master_record")} WHERE gcs_landing_uri IS NOT NULL)
+),
+ai_processing AS (
+  SELECT 
+    uri as gcs_landing_uri,
+    original_filename,
+    AI.GENERATE(
+      prompt => STRUCT(
+        OBJ.MAKE_REF(uri) AS document,
+        """
+        You are an AI Data Steward for a KG Knowledge Hub. Analyze this file's contents. 
+        Determine if it is a Lab Inventory log, an ELN Data Export, or a Tacit Knowledge Report. 
+        Extract the relevant Experiment IDs, Target Molecules, and a brief summary of what this data is for.
+        Output ONLY a valid JSON object matching this schema:
+        {
+          "file_category": "INVENTORY | ELN_DATA | TACIT_REPORT | UNKNOWN",
+          "experiment_id": "string or null",
+          "target_molecules": ["string"],
+          "summary": "string"
+        }
+        """ AS text
+      ),
+      output_schema => 'file_category STRING, experiment_id STRING, target_molecules ARRAY<STRING>, summary STRING',
+      endpoint => 'gemini-2.5-pro',
+      connection_id => '${dataform.projectConfig.vars.connection_id}',
+      model_params => JSON '{"generationConfig": {"temperature": 0.2, "maxOutputTokens": 8192}}'
+    ) AS ai_output
+  FROM new_files
+)
+SELECT
+  GENERATE_UUID() as file_id,
+  original_filename,
+  gcs_landing_uri,
+  'ai_router' as submitter_id,
+  'ROUTED' as processing_status,
+  PARSE_JSON(TO_JSON_STRING(ai_output)) as pipeline_lineage_tags
+FROM ai_processing;

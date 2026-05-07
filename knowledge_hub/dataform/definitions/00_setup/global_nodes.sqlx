@@ -1,0 +1,17 @@
+config {
+  type: "operations",
+  hasOutput: true,
+  schema: "kg_graph_data",
+  name: "global_nodes",
+  description: "Unified table for all graph nodes."
+}
+
+CREATE TABLE IF NOT EXISTS ${self()} (
+    node_id STRING NOT NULL,
+    file_id STRING,
+    page_num INT64,
+    name STRING,
+    ontology_class STRING,
+    properties STRING,
+    embedding ARRAY<FLOAT64>
+);

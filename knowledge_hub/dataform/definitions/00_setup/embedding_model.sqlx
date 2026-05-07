@@ -1,0 +1,11 @@
+config {
+  type: "operations",
+  hasOutput: true,
+  schema: "kg_knowledge_hub",
+  name: "embedding_model",
+  description: "Text embedding model declaration"
+}
+
+CREATE OR REPLACE MODEL ${self()}
+REMOTE WITH CONNECTION `${dataform.projectConfig.vars.connection_id}`
+OPTIONS(endpoint = 'text-embedding-005');
