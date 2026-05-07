@@ -14,7 +14,8 @@ CREATE TABLE IF NOT EXISTS ${self()} (
   original_filename STRING,
   page_num INT64,
   extracted_nodes ARRAY<STRUCT<node_name STRING, ontology_class STRING, properties STRING>>,
-  extracted_edges ARRAY<STRUCT<source_node_name STRING, target_node_name STRING, ontological_relationship STRING, evidence_insight STRING>>
+  extracted_edges ARRAY<STRUCT<source_node_name STRING, target_node_name STRING, ontological_relationship STRING, evidence_insight STRING>>,
+  unbound_insights ARRAY<STRUCT<insight_description STRING, inferred_category STRING>>
 );
 
 LOOP
@@ -70,14 +71,21 @@ LOOP
           CRITICAL INSTRUCTION: If the document has fewer than %d pages, or if PAGE %d is completely blank, or if there is absolutely no useful information on this specific page, YOU MUST OUTPUT an empty JSON object: {}
           Do not hallucinate or guess what might be on this page. If it doesn't exist, return {}.
           
-          Otherwise, extract ALL relevant Knowledge from this page as a Generic Property Graph (Triples).
+          Otherwise, extract ALL relevant Knowledge from this page.
+
+          You have TWO extraction tasks:
+
+          TASK 1: STRICT GRAPH TRIPLES
           Align the extraction STRICTLY to the kg.owl ontology structures.
-          
+
+          TASK 2: UNBOUND INSIGHTS
+          If you discover critical scientific insights, risks, or tacit knowledge that CANNOT be accurately mapped to the provided kg.owl ontology classes, you MUST extract them into the `unbound_insights` array. Invent a logical `inferred_category` for these insights. Do not discard knowledge just because it doesn't fit the ontology.
+
           Output ONLY a valid JSON object following this exact schema:
           {
             "extracted_nodes": [
               {
-                "node_name": "String (e.g., Toluene, Bioreactor-A, or MOL-035A)",
+                "node_name": "String",
                 "ontology_class": "String (MUST exactly match a Class in kg.owl)",
                 "properties": "String (JSON string of any specific attributes like status, values, observations)"
               }
@@ -89,12 +97,18 @@ LOOP
                 "ontological_relationship": "String (MUST exactly match a Relationship in kg.owl)",
                 "evidence_insight": "String (The tacit knowledge or textual evidence connecting them from the page)"
               }
+            ],
+            "unbound_insights": [
+              {
+                "insight_description": "String (The critical knowledge that didn't fit the ontology)",
+                "inferred_category": "String (Invent a logical category for this, e.g., EnvironmentalFactor, OperatorError)"
+              }
             ]
           }
 
           """, page_num, page_num, page_num) AS text
-        ),
-        output_schema => 'extracted_nodes ARRAY<STRUCT<node_name STRING, ontology_class STRING, properties STRING>>, extracted_edges ARRAY<STRUCT<source_node_name STRING, target_node_name STRING, ontological_relationship STRING, evidence_insight STRING>>',
+          ),
+          output_schema => 'extracted_nodes ARRAY<STRUCT<node_name STRING, ontology_class STRING, properties STRING>>, extracted_edges ARRAY<STRUCT<source_node_name STRING, target_node_name STRING, ontological_relationship STRING, evidence_insight STRING>>, unbound_insights ARRAY<STRUCT<insight_description STRING, inferred_category STRING>>',
         endpoint => 'gemini-2.5-pro',
         connection_id => '${dataform.projectConfig.vars.connection_id}',
         model_params => JSON FORMAT('''{"generationConfig": {"temperature": 0.0, "maxOutputTokens": 8192, "responseMimeType": "application/json"}, "cachedContent": "projects/%s/locations/%s/cachedContents/%s"}''', '${dataform.projectConfig.vars.project_id}', '${dataform.projectConfig.vars.location}', '${dataform.projectConfig.vars.ontology_cache_id}')
@@ -106,10 +120,12 @@ LOOP
     original_filename,
     page_num,
     extracted_data.extracted_nodes,
-    extracted_data.extracted_edges
+    extracted_data.extracted_edges,
+    extracted_data.unbound_insights
   FROM ai_processing
-  -- Filter out pages where Gemini found nothing (both arrays empty or null)
+  -- Filter out pages where Gemini found nothing (all arrays empty or null)
   WHERE ARRAY_LENGTH(extracted_data.extracted_nodes) > 0 
-     OR ARRAY_LENGTH(extracted_data.extracted_edges) > 0;
+     OR ARRAY_LENGTH(extracted_data.extracted_edges) > 0
+     OR ARRAY_LENGTH(extracted_data.unbound_insights) > 0;
      
 END LOOP;

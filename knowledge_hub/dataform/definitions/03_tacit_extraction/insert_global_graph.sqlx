@@ -12,7 +12,7 @@ TRUNCATE TABLE ${ref("global_edges")};
 
 -- 1. Insert Nodes
 INSERT INTO ${ref("global_nodes")}
-(node_id, file_id, page_num, name, ontology_class, properties, embedding)
+(node_id, file_id, page_num, name, ontology_class, properties, unbound_insights, embedding)
 WITH unnested_nodes AS (
   SELECT DISTINCT
     file_id,
@@ -35,18 +35,19 @@ formatted_nodes AS (
   FROM unnested_nodes
 )
 SELECT
-  node_id,
-  file_id,
-  page_num,
-  name,
-  ontology_class,
-  properties,
+  n.node_id,
+  n.file_id,
+  n.page_num,
+  n.name,
+  n.ontology_class,
+  n.properties,
+  (SELECT unbound_insights FROM ${ref("page_level_extractions")} p WHERE p.file_id = n.file_id AND p.page_num = n.page_num LIMIT 1) AS unbound_insights,
   ml_generate_embedding_result AS embedding
 FROM ML.GENERATE_EMBEDDING(
   MODEL ${ref("embedding_model")},
-  (SELECT node_id, name, ontology_class, properties, FORMAT('%s (%s): %s', name, ontology_class, properties) AS content FROM formatted_nodes),
+  (SELECT node_id, file_id, page_num, name, ontology_class, properties, FORMAT('%s (%s): %s', name, ontology_class, properties) AS content FROM formatted_nodes),
   STRUCT(TRUE AS flatten_json_output)
-);
+) n;
 
 -- 2. Insert Edges
 INSERT INTO ${ref("global_edges")}

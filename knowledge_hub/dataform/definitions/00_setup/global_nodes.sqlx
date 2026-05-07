@@ -13,5 +13,6 @@ CREATE TABLE IF NOT EXISTS ${self()} (
     name STRING,
     ontology_class STRING,
     properties STRING,
+    unbound_insights ARRAY<STRUCT<insight_description STRING, inferred_category STRING>>,
     embedding ARRAY<FLOAT64>
 );
