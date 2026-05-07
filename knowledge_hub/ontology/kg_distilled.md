@@ -1,6 +1,6 @@
 # Pistoia Alliance Process Graph Ontology (PGO) - Enterprise Distilled
 
-This document provides a highly comprehensive, LLM-optimized representation of the core concepts, sub-classes, and ontological constraints derived from the Pistoia Alliance PGO and related standard biomedical ontologies (e.g., OBI, ChEBI, NCIT). 
+This document provides a highly comprehensive, LLM-optimized representation of the core concepts, sub-classes, and ontological constraints derived from the [Pistoia Alliance PGO (v1.0)](https://github.com/Pistoia-Alliance-Inc/Pistoia-Alliance-PGO) and related standard biomedical ontologies (e.g., OBI, ChEBI, NCIT). 
 
 It defines the strict vocabulary of Nodes, Edges, and Properties that the AI MUST use when extracting complex scientific knowledge graphs from unstructured text.
 

@@ -11,7 +11,7 @@ Instead of hardcoding domain-specific BigQuery tables (e.g., `molecules`, `assay
 ### Technical Stack
 1. **Google Cloud Storage (GCS) + BigQuery Object Tables:** Provides native SQL access to raw, unstructured binary files (PDFs, PPTs) as they land.
 2. **Dataform:** Orchestrates the extraction, handles idempotent transformations, and executes the final `CREATE PROPERTY GRAPH` DDL.
-3. **Vertex AI Context Caching:** Loads the Pistoia Alliance Process Graph Ontology (PGO) into cache, bounding the LLM's extraction vocabulary without consuming excessive prompt tokens per page.
+3. **Vertex AI Context Caching:** Loads the [Pistoia Alliance Process Graph Ontology (PGO)](https://github.com/Pistoia-Alliance-Inc/Pistoia-Alliance-PGO) into cache, bounding the LLM's extraction vocabulary without consuming excessive prompt tokens per page.
 4. **BigQuery ML (`AI.GENERATE`):** Executes Gemini 2.5 Pro directly over the GCS URIs to extract the Triples.
 5. **BigQuery ML (`ML.GENERATE_EMBEDDING`):** Generates `text-embedding-005` vectors for every extracted node, enabling downstream Hybrid GQL + Vector Search.
 
