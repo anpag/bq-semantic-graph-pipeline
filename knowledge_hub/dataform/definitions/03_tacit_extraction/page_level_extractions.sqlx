@@ -107,25 +107,65 @@ LOOP
           }
 
           """, page_num, page_num, page_num) AS text
-          ),
-          output_schema => 'extracted_nodes ARRAY<STRUCT<node_name STRING, ontology_class STRING, properties STRING>>, extracted_edges ARRAY<STRUCT<source_node_name STRING, target_node_name STRING, ontological_relationship STRING, evidence_insight STRING>>, unbound_insights ARRAY<STRUCT<insight_description STRING, inferred_category STRING>>',
+        ),
         endpoint => 'gemini-2.5-pro',
         connection_id => '${dataform.projectConfig.vars.connection_id}',
         model_params => JSON FORMAT('''{"generationConfig": {"temperature": 0.0, "maxOutputTokens": 8192, "responseMimeType": "application/json"}, "cachedContent": "projects/%s/locations/%s/cachedContents/%s"}''', '${dataform.projectConfig.vars.project_id}', '${dataform.projectConfig.vars.location}', '${dataform.projectConfig.vars.ontology_cache_id}')
-      ) AS extracted_data
+      ) AS ai_output
     FROM pages
+  ),
+  parsed_processing AS (
+    SELECT 
+      file_id,
+      original_filename,
+      page_num,
+      JSON_VALUE(ai_output, '$.candidates[0].content.parts[0].text') AS raw_json_string,
+      SAFE.PARSE_JSON(JSON_VALUE(ai_output, '$.candidates[0].content.parts[0].text')) AS parsed_json
+    FROM ai_processing
   )
+  
+  -- Step A: Insert Malformed Responses into the Dead Letter Queue
+  INSERT INTO ${ref("dlq_page_extractions")}
+  (file_id, original_filename, page_num, raw_llm_response)
+  SELECT 
+    file_id, original_filename, page_num, raw_json_string
+  FROM parsed_processing
+  WHERE parsed_json IS NULL AND raw_json_string IS NOT NULL;
+
+  -- Step B: Insert Successfully Parsed JSON into the Main Table
+  INSERT INTO ${self()}
   SELECT 
     file_id,
     original_filename,
     page_num,
-    extracted_data.extracted_nodes,
-    extracted_data.extracted_edges,
-    extracted_data.unbound_insights
-  FROM ai_processing
-  -- Filter out pages where Gemini found nothing (all arrays empty or null)
-  WHERE ARRAY_LENGTH(extracted_data.extracted_nodes) > 0 
-     OR ARRAY_LENGTH(extracted_data.extracted_edges) > 0
-     OR ARRAY_LENGTH(extracted_data.unbound_insights) > 0;
+    ARRAY(
+      SELECT AS STRUCT
+        JSON_VALUE(node, '$.node_name') AS node_name,
+        JSON_VALUE(node, '$.ontology_class') AS ontology_class,
+        JSON_VALUE(node, '$.properties') AS properties
+      FROM UNNEST(JSON_QUERY_ARRAY(parsed_json, '$.extracted_nodes')) AS node
+    ) AS extracted_nodes,
+    ARRAY(
+      SELECT AS STRUCT
+        JSON_VALUE(edge, '$.source_node_name') AS source_node_name,
+        JSON_VALUE(edge, '$.target_node_name') AS target_node_name,
+        JSON_VALUE(edge, '$.ontological_relationship') AS ontological_relationship,
+        JSON_VALUE(edge, '$.evidence_insight') AS evidence_insight
+      FROM UNNEST(JSON_QUERY_ARRAY(parsed_json, '$.extracted_edges')) AS edge
+    ) AS extracted_edges,
+    ARRAY(
+      SELECT AS STRUCT
+        JSON_VALUE(insight, '$.insight_description') AS insight_description,
+        JSON_VALUE(insight, '$.inferred_category') AS inferred_category
+      FROM UNNEST(JSON_QUERY_ARRAY(parsed_json, '$.unbound_insights')) AS insight
+    ) AS unbound_insights
+  FROM parsed_processing
+  WHERE parsed_json IS NOT NULL
+  -- Filter out pages where Gemini found nothing
+  AND (
+    ARRAY_LENGTH(JSON_QUERY_ARRAY(parsed_json, '$.extracted_nodes')) > 0 
+    OR ARRAY_LENGTH(JSON_QUERY_ARRAY(parsed_json, '$.extracted_edges')) > 0
+    OR ARRAY_LENGTH(JSON_QUERY_ARRAY(parsed_json, '$.unbound_insights')) > 0
+  );
      
 END LOOP;
