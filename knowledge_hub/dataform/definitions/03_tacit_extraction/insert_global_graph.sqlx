@@ -4,13 +4,13 @@ config {
   schema: "kg_graph_data",
   name: "insert_global_graph",
   description: "Merge generic extracted nodes and edges from page level extractions.",
-  dependencies: ["page_level_extractions", "global_nodes", "global_edges", "embedding_model"]
+  dependencies: ["page_level_extractions", "global_nodes", "global_edges", "embedding_model", "onto_classes", "dlq_semantic_failures"]
 }
 
 TRUNCATE TABLE ${ref("global_nodes")};
 TRUNCATE TABLE ${ref("global_edges")};
 
--- 1. Insert Nodes
+-- 1. Insert Valid Nodes (Relational SHACL Enforcement)
 INSERT INTO ${ref("global_nodes")}
 (node_id, file_id, page_num, name, ontology_class, properties, unbound_insights, embedding)
 WITH unnested_nodes AS (
@@ -24,6 +24,13 @@ WITH unnested_nodes AS (
   UNNEST(extracted_nodes) AS node
   WHERE node.node_name IS NOT NULL
 ),
+-- Semantic SHACL Check: Only keep nodes that EXACTLY match our parsed Ontology Master Dictionary
+validated_nodes AS (
+  SELECT u.* 
+  FROM unnested_nodes u
+  INNER JOIN ${ref("onto_classes")} dict
+    ON TRIM(u.ontology_class) = dict.class_name
+),
 formatted_nodes AS (
   SELECT DISTINCT
     TO_HEX(MD5(UPPER(TRIM(node_name)))) AS node_id,
@@ -32,7 +39,7 @@ formatted_nodes AS (
     TRIM(node_name) AS name,
     TRIM(ontology_class) AS ontology_class,
     properties
-  FROM unnested_nodes
+  FROM validated_nodes
 )
 SELECT
   n.node_id,
@@ -49,7 +56,26 @@ FROM ML.GENERATE_EMBEDDING(
   STRUCT(TRUE AS flatten_json_output)
 ) n;
 
--- 2. Insert Edges
+-- 2. Insert Hallucinated Nodes into Semantic DLQ
+INSERT INTO ${ref("dlq_semantic_failures")}
+(file_id, page_num, node_name, hallucinated_class, properties)
+WITH unnested_nodes AS (
+  SELECT DISTINCT
+    file_id,
+    page_num,
+    node.node_name,
+    node.ontology_class,
+    node.properties
+  FROM ${ref("page_level_extractions")},
+  UNNEST(extracted_nodes) AS node
+  WHERE node.node_name IS NOT NULL
+)
+SELECT 
+  file_id, page_num, node_name, ontology_class AS hallucinated_class, properties
+FROM unnested_nodes u
+WHERE TRIM(u.ontology_class) NOT IN (SELECT class_name FROM ${ref("onto_classes")});
+
+-- 3. Insert Edges
 INSERT INTO ${ref("global_edges")}
 (edge_id, source_node_id, target_node_id, relationship_type, evidence_insight)
 SELECT DISTINCT

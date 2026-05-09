@@ -1,0 +1,6 @@
+config {
+  type: "declaration",
+  schema: "kg_ontology_master",
+  name: "onto_classes",
+  description: "Master dictionary of all allowed ontology classes. Populated by the Python CI/CD pipeline."
+}
