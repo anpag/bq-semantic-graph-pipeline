@@ -1,76 +1,42 @@
-# BQ Semantic Graph Pipeline
+# BigQuery Semantic Graph Pipeline
 
-A reference architecture for dynamically extracting unstructured documents into a native BigQuery Property Graph, utilizing BigQuery ML (`AI.GENERATE`) and Vertex AI Context Caching.
+A reference architecture for automated ingestion and semantic extraction of unstructured scientific documents into a native BigQuery Property Graph, utilizing BigQuery ML (`AI.GENERATE`) and relational SHACL (Shapes Constraint Language) enforcement.
 
-## Architecture Overview
+## System Architecture Overview
 
-This repository demonstrates how to build a highly scalable, "schema-less" extraction pipeline natively within Google Cloud. By relying entirely on Dataform, BigQuery Object Tables, and Gemini 2.5 Pro, this pipeline avoids the complexity of external Python orchestration (e.g., Airflow) and rigid parsing scripts.
+This repository demonstrates a highly scalable, serverless extraction pipeline natively hosted within Google Cloud. By utilizing Dataform, BigQuery Object Tables, and Gemini 2.5 Pro, the system bypasses external orchestration middleware and fragile heuristic parsing scripts.
 
-Instead of hardcoding domain-specific BigQuery tables (e.g., `molecules`, `assays`), the pipeline extracts **Generic Graph Triples** (Subject-Predicate-Object). The structure of the database never changes, but the semantic *vocabulary* expands infinitely based on an open-source ontology cached in Vertex AI.
+The architecture decouples the physical database schema from the semantic ontology. It extracts generic graph primitives (Subject-Predicate-Object triples) where the semantic vocabulary is dynamically bounded by open-source ontologies (e.g., OBI, BFO). Topological integrity is enforced relationally rather than at the model-generation layer.
 
-### Technical Stack
-1. **Google Cloud Storage (GCS) + BigQuery Object Tables:** Provides native SQL access to raw, unstructured binary files (PDFs, PPTs) as they land.
-2. **Dataform:** Orchestrates the extraction, handles idempotent transformations, and executes the final `CREATE PROPERTY GRAPH` DDL.
-3. **Vertex AI Context Caching:** Loads the [Pistoia Alliance Process Graph Ontology (PGO)](https://github.com/Pistoia-Alliance-Inc/Pistoia-Alliance-PGO) into cache, bounding the LLM's extraction vocabulary without consuming excessive prompt tokens per page.
-4. **BigQuery ML (`AI.GENERATE`):** Executes Gemini 2.5 Pro directly over the GCS URIs to extract the Triples.
-5. **BigQuery ML (`ML.GENERATE_EMBEDDING`):** Generates `text-embedding-005` vectors for every extracted node, enabling downstream Hybrid GQL + Vector Search.
+### Core Technologies
+1. **Google Cloud Storage (GCS) & BigQuery Object Tables:** Provides unified SQL access to raw, unstructured binary objects.
+2. **Dataform:** Orchestrates idempotency, data transformations, and the execution of the final `CREATE PROPERTY GRAPH` DDL.
+3. **BigQuery ML (`AI.GENERATE`):** Executes multimodal inference directly over GCS URIs to perform document classification and targeted entity extraction.
+4. **BigQuery ML (`ML.GENERATE_EMBEDDING`):** Calculates vector representations for extracted nodes, facilitating retrieval-augmented generation (RAG) during pipeline execution and downstream semantic search operations.
+5. **Python (`rdflib` / `owlrl`):** An offline CI/CD utility that parses OWL definitions, computes deductive closures over BFO restrictions, and materializes topological constraints into relational BigQuery tables.
 
-## Repository Structure
+## Pipeline Execution Flow
 
-```text
-.
-├── docs/
-│   └── PROMPTS_AND_ARCHITECTURE.md    # Deep dive on the SQL prompts and Vertex caching mechanics
-├── knowledge_hub/
-│   ├── DEPLOYMENT_RUNBOOK.md          # Step-by-step gcloud & dataform deployment guide
-│   ├── ontology/
-│   │   └── kg_distilled.md            # The Pistoia PGO ontology used to bound the LLM
-│   └── dataform/
-│       ├── workflow_settings.yaml     # Environment variables (Project ID, Cache ID)
-│       └── definitions/               # The core SQLX pipeline
-│           ├── 00_setup/              # Graph tables, models, and Object Table provisioning
-│           ├── 02_ai_router/          # Document-level classification
-│           └── 03_tacit_extraction/   # Map-Reduce page-level Triples extraction
-```
+### 1. Ingestion & Object Registration (`00_setup/`)
+Unstructured files (PDF, CSV, TXT) deposited into the GCS landing zone are automatically registered via the `raw_landing_objects.sqlx` Object Table. BigQuery authenticates access to these payloads via a dedicated Cloud Resource Connection, eliminating the need for signed URL generation.
 
-## Step-by-Step Pipeline Walkthrough
+### 2. Document-Level Canonicalization (`02_ai_router/`)
+Upon detection of an unmapped file URI, the classification pipeline reads the complete document to establish global context. The pipeline executes a deterministic entity resolution step, mapping localized textual synonyms and laboratory aliases (e.g., lot numbers, shorthand) to strict canonical identifiers (e.g., mapping `lot:102665358` to `Fenofibrate`). This output is persisted to the `document_master_record`.
 
-This section explains exactly how a raw PDF goes from being dropped in a bucket to becoming a fully traversable ISO GQL Property Graph in BigQuery.
+### 3. Dynamic Ontology Subsetting
+To prevent context window saturation and mitigate instruction-following degradation in the LLM, the architecture dynamically subsets the target ontology prior to extraction. BigQuery `VECTOR_SEARCH` is utilized to match the document's global context vector against the materialized ontology table, generating a constrained, highly targeted subset of permissible classes and properties unique to the source document.
 
-### Step 1: Configuration & Raw Data Landing (`00_setup/`)
-Before AI runs, the database needs to know where files live. We use a **BigQuery Object Table** (`raw_landing_objects.sqlx`) built over a GCS bucket. When a user drops a PDF into `gs://your-bucket/01_landing/`, a new row instantly appears in this SQL table containing the file's binary URI. BigQuery accesses this bucket securely using a Cloud Resource Connection.
+### 4. Bounded Triples Extraction (`03_tacit_extraction/`)
+Extraction tasks operating on large-scale scientific documentation (e.g., 50+ pages) are chunked to mitigate the "lost in the middle" phenomenon common in large context window inference. 
+Dataform executes a parallel `CROSS JOIN` operation, invoking `AI.GENERATE` on a per-page basis. The prompt context is rigidly bounded by the targeted ontology subset (Step 3) and the canonical entity dictionary (Step 2).
 
-### Step 2: The AI Router (`02_ai_router/`)
-Once BigQuery knows a new PDF exists, it categorizes it entirely in SQL. The `route_landing_files.sqlx` script uses BigQuery ML's native `AI.GENERATE` function combined with `OBJ.MAKE_REF(uri)` to pass the raw binary PDF directly to Gemini 2.5 Pro. Gemini determines the overarching ontology class of the document (e.g., `Experiment_Report` vs `Inventory_Log`) and logs the result in the `document_master_record` tracking table.
+*Knowledge Preservation:* Observations or modeling conclusions that cannot be semantically represented as a valid structural edge are safely extracted into a semi-structured `unbound_insights` JSON array, preserving tacit knowledge without violating graph topology.
 
-### Step 3: Generic Triples Extraction (The "Map" Phase)
-Large scientific documents (50+ pages) have too much text to feed into an LLM at once due to context dilution. We solve this natively in Dataform (`page_level_extractions.sqlx`) using a Map-Reduce pattern.
-1. **Map (Chunking):** We `CROSS JOIN` the document URI to generate a distinct database row for every single page.
-2. **Extraction:** We fire parallel `AI.GENERATE` requests for each page row. Crucially, we inject a Vertex AI Context Cache ID representing the Pistoia Graph Ontology (PGO). The LLM evaluates only that specific page and outputs a strict JSON array of generic Triples (`extracted_nodes` and `extracted_edges`) bounded by the cached ontology vocabulary.
-3. **Open Knowledge:** If the LLM finds tacit knowledge that doesn't fit the strict ontology, it routes it to an `unbound_insights` array, preventing knowledge loss.
+### 5. Relational SHACL Validation & Graph Synthesis
+LLM output is treated as untrusted data until validated. Dataform executes a strict `INNER JOIN` between the LLM's extracted edges and the deduplicated, reasoning-expanded `onto_rules` table stored in BigQuery.
+*   **Validation Failure:** Edges violating domain or range constraints are routed to the `dlq_semantic_failures` table for manual review.
+*   **Validation Success:** Valid edges are deduplicated via MD5 hashing and inserted into `global_nodes` and `global_edges`. The final topology is queryable via BigQuery's native ISO GQL implementation (`kg_graph.sqlx`).
 
-### Step 4: Graph Synthesis & Embeddings (The "Reduce" Phase)
-We now have a table filled with raw JSON arrays for every page. `insert_global_graph.sqlx` flattens this into the actual graph nodes.
-1. **Deduplication:** We UNNEST the arrays. If Gemini finds "Toluene" on page 5 and page 20, we generate a deterministic MD5 hash (`TO_HEX(MD5(UPPER(node_name)))`) so both mentions resolve to the exact same UUID.
-2. **Embeddings:** Before inserting the Node into the `global_nodes` table, we pass its properties through `ML.GENERATE_EMBEDDING` (using `text-embedding-005`). This generates a semantic vector array for the node.
-
-### Step 5: The Property Graph (ISO GQL Overlay)
-To traverse the data efficiently, we define a Property Graph overlay on top of our flat tables (`kg_graph.sqlx`). 
-We map `global_nodes` as the vertices and `global_edges` as the lines connecting them, explicitly binding the `source_node_id` and `target_node_id` foreign keys.
-
-Downstream applications can now perform a **Hybrid Vector + GQL Query**:
-```sql
-SELECT g.description, g.ontological_relationship
-FROM GRAPH_TABLE(
-    `kg_graph`
-    MATCH (a:`global_nodes`)-[:CONNECTS]->(e:`global_nodes`)
-    WHERE a.node_id IN (
-        SELECT base.node_id FROM VECTOR_SEARCH(TABLE `global_nodes`, 'embedding', ...)
-    )
-) g
-```
-This instantly finds the most semantically relevant Node via Vector Search, and then uses ISO GQL to strictly traverse all connected experiments, diseases, or devices.
-
-## Next Steps for Engineers
-* Read the **[Deployment Runbook](knowledge_hub/DEPLOYMENT_RUNBOOK.md)** to provision the GCP resources and execute the Dataform run.
-* Review the **[Prompts & Architecture Guide](docs/PROMPTS_AND_ARCHITECTURE.md)** to understand how Vertex Context Caching is injected into the BigQuery SQL.
+## Further Documentation
+* **[Enterprise Ontology Scaling](docs/ENTERPRISE_ONTOLOGY_SCALING.md)**: Details the CI/CD pipeline and the use of deductive reasoners (`owlrl`) for expanding BFO restrictions into flat relational rules.
+* **[SQL Prompts & Architecture](docs/PROMPTS_AND_ARCHITECTURE.md)**: Technical breakdown of the `AI.GENERATE` schemas and entity canonicalization directives.
