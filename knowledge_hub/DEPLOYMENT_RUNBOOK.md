@@ -33,6 +33,22 @@ The Knowledge Hub is built on an **AI-First Ingestion Architecture**. It avoids 
 
 Follow these steps to deploy the entire solution in a new GCP Project.
 
+### Step 0: Precompute Ontology Topology Rules
+Before deploying the BigQuery infrastructure, you must use the offline Python Reasoner to materialize the hidden Description Logic rules from the raw OWL file into flat CSV dictionaries.
+1. Navigate to the ingestion directory:
+```bash
+cd public_release/ontology_ingestion
+```
+2. Install the semantic reasoning dependencies:
+```bash
+pip install -r requirements.txt
+```
+3. Execute the Deductive Reasoner to generate the rulebooks:
+```bash
+python3 generate_master_rulebook.py
+```
+*(Note: This generates `onto_rules_massive.csv` locally. Do not commit this massive generated file to version control.)*
+
 ### Step 1: Enable APIs
 ```bash
 gcloud services enable bigquery.googleapis.com \
