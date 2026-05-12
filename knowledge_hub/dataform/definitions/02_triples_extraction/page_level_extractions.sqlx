@@ -4,7 +4,7 @@ config {
   schema: "kg_knowledge_hub",
   name: "page_level_extractions",
   description: "Page-by-page tacit knowledge extraction using generic triples output format.",
-  dependencies: ["document_master_record", "gemini_pro"]
+  dependencies: ["document_master_record", "gemini_pro", "onto_data_properties"]
 }
 
 DECLARE pending_docs INT64;
@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS ${self()} (
   original_filename STRING,
   page_num INT64,
   extracted_nodes ARRAY<STRUCT<node_name STRING, ontology_class STRING, properties STRING>>,
-  extracted_edges ARRAY<STRUCT<source_node_name STRING, target_node_name STRING, ontological_relationship STRING, evidence_insight STRING>>,
+  extracted_edges ARRAY<STRUCT<source_node_name STRING, target_node_name STRING, ontological_relationship STRING, evidence_insight STRING, confidence_score FLOAT64>>,
   unbound_insights ARRAY<STRUCT<insight_description STRING, inferred_category STRING>>
 );
 
@@ -23,7 +23,7 @@ LOOP
     SELECT COUNT(1) 
     FROM ${ref("document_master_record")}
     -- Process both TACIT_REPORT and ELN_DATA for the Hackathon Demo
-    WHERE JSON_EXTRACT_SCALAR(pipeline_lineage_tags, '$.ontology_class') IN ('Experiment_Report', 'Experiment_Data_Set', 'PlanSpecification')
+    WHERE JSON_EXTRACT_SCALAR(pipeline_lineage_tags, '$.primary_ontology_class') IS NOT NULL
       AND processing_status = 'ROUTED'
       AND file_id NOT IN (SELECT DISTINCT file_id FROM ${self()})
   );
@@ -32,28 +32,29 @@ LOOP
     LEAVE;
   END IF;
 
-  INSERT INTO ${self()}
+  CREATE OR REPLACE TEMP TABLE current_batch_processing AS
   WITH target_docs AS (
     SELECT 
       file_id, 
       gcs_landing_uri,
-      original_filename
+      original_filename,
+      pipeline_lineage_tags
     FROM ${ref("document_master_record")}
-    WHERE JSON_EXTRACT_SCALAR(pipeline_lineage_tags, '$.ontology_class') IN ('Experiment_Report', 'Experiment_Data_Set', 'PlanSpecification')
+    WHERE JSON_EXTRACT_SCALAR(pipeline_lineage_tags, '$.primary_ontology_class') IS NOT NULL
       AND processing_status = 'ROUTED'
       AND file_id NOT IN (SELECT DISTINCT file_id FROM ${self()})
     LIMIT 1 -- Batch process 1 document at a time to prevent transaction timeouts with large page counts
   ),
   pages AS (
     SELECT 
-      file_id, 
-      gcs_landing_uri, 
-      original_filename, 
-      page_num
-    FROM target_docs
-    -- Process exactly the number of pages in the document to prevent LLM hallucination on non-existent pages.
-    -- NOTE: In a production environment, you should extract the true page count via a BigQuery UDF or 
-    -- during the ingestion phase. For this reference architecture, we assume a maximum of 50 pages.
+      t.file_id, 
+      t.gcs_landing_uri, 
+      t.original_filename, 
+      page_num,
+      JSON_EXTRACT_SCALAR(t.pipeline_lineage_tags, '$.global_context_summary') AS global_context,
+      JSON_EXTRACT(t.pipeline_lineage_tags, '$.entity_dictionary') AS entity_dictionary,
+      (SELECT TO_JSON_STRING(ARRAY_AGG(STRUCT(domain_class, property_name, expected_type))) FROM ${ref("onto_data_properties")}) AS property_schema
+    FROM target_docs t
     CROSS JOIN UNNEST(GENERATE_ARRAY(1, 50)) AS page_num
   ),
   ai_processing AS (
@@ -71,46 +72,53 @@ LOOP
           CRITICAL INSTRUCTION: If the document has fewer than %d pages, or if PAGE %d is completely blank, or if there is absolutely no useful information on this specific page, YOU MUST OUTPUT an empty JSON object: {}
           Do not hallucinate or guess what might be on this page. If it doesn't exist, return {}.
           
-          Otherwise, extract ALL relevant Knowledge from this page.
+          GLOBAL CONTEXT: %s
+          
+          MASTER ENTITY DICTIONARY: 
+          %s
 
-          You have TWO extraction tasks:
+          PROPERTY SCHEMA DICTIONARY:
+          %s
 
           TASK 1: STRICT GRAPH TRIPLES
-          Align the extraction STRICTLY to the kg.owl ontology structures.
+          Align the extraction STRICTLY to the ontology structures provided in the context cache.
+          CRITICAL CANONICALIZATION RULE: If you find an entity on this page that matches a synonym in the Master Entity Dictionary, you MUST use the `canonical_name` for your output.
+          CRITICAL PROPERTY RULE: When extracting `properties` for a node, the JSON keys MUST EXACTLY MATCH the allowed `property_name` values mapped to that node's `ontology_class` in the Property Schema Dictionary. Do not invent property keys. If you find data that doesn't match an allowed property, put it in `unbound_insights`.
 
           TASK 2: UNBOUND INSIGHTS
-          If you discover critical scientific insights, risks, or tacit knowledge that CANNOT be accurately mapped to the provided kg.owl ontology classes, you MUST extract them into the `unbound_insights` array. Invent a logical `inferred_category` for these insights. Do not discard knowledge just because it doesn't fit the ontology.
+          If you discover critical scientific insights, risks, or tacit knowledge that CANNOT be accurately mapped to the provided ontology classes or allowed property keys, you MUST extract them into the `unbound_insights` array. Invent a logical `inferred_category` for these insights.
 
           Output ONLY a valid JSON object following this exact schema:
           {
             "extracted_nodes": [
               {
-                "node_name": "String",
-                "ontology_class": "String (MUST exactly match a Class in kg.owl)",
-                "properties": "String (JSON string of any specific attributes like status, values, observations)"
+                "node_name": "String (MUST use Canonical Name if in dictionary)",
+                "ontology_class": "String (MUST exactly match a Class)",
+                "properties": "String (JSON string where keys MUST match the Property Schema Dictionary for this class)"
               }
             ],
             "extracted_edges": [
               {
                 "source_node_name": "String (MUST match a node_name above)",
                 "target_node_name": "String (MUST match a node_name above)",
-                "ontological_relationship": "String (MUST exactly match a Relationship in kg.owl)",
-                "evidence_insight": "String (The tacit knowledge or textual evidence connecting them from the page)"
+                "ontological_relationship": "String (MUST exactly match a Relationship)",
+                "evidence_insight": "String (The tacit knowledge or textual evidence connecting them from the page)",
+                "confidence_score": "Float (0.0 to 1.0 indicating your confidence in this edge extraction)"
               }
             ],
             "unbound_insights": [
               {
                 "insight_description": "String (The critical knowledge that didn't fit the ontology)",
-                "inferred_category": "String (Invent a logical category for this, e.g., EnvironmentalFactor, OperatorError)"
+                "inferred_category": "String"
               }
             ]
           }
 
-          """, page_num, page_num, page_num) AS text
+          """, page_num, page_num, page_num, global_context, TO_JSON_STRING(entity_dictionary), property_schema) AS text
         ),
         endpoint => 'gemini-2.5-pro',
         connection_id => '${dataform.projectConfig.vars.connection_id}',
-        model_params => JSON FORMAT('''{"generationConfig": {"temperature": 0.0, "maxOutputTokens": 8192, "responseMimeType": "application/json"}, "cachedContent": "projects/%s/locations/%s/cachedContents/%s"}''', '${dataform.projectConfig.vars.project_id}', '${dataform.projectConfig.vars.location}', '${dataform.projectConfig.vars.ontology_cache_id}')
+        model_params => JSON '{"generationConfig": {"temperature": 0.0, "maxOutputTokens": 8192, "responseMimeType": "application/json"}, "cachedContent": "projects/${dataform.projectConfig.vars.project_id}/locations/${dataform.projectConfig.vars.location}/cachedContents/${dataform.projectConfig.vars.ontology_cache_id}"}'
       ) AS ai_output
     FROM pages
   ),
@@ -119,17 +127,18 @@ LOOP
       file_id,
       original_filename,
       page_num,
-      JSON_VALUE(ai_output, '$.candidates[0].content.parts[0].text') AS raw_json_string,
-      SAFE.PARSE_JSON(JSON_VALUE(ai_output, '$.candidates[0].content.parts[0].text')) AS parsed_json
+      JSON_VALUE(ai_output.full_response, '$.candidates[0].content.parts[0].text') AS raw_json_string,
+      SAFE.PARSE_JSON(JSON_VALUE(ai_output.full_response, '$.candidates[0].content.parts[0].text')) AS parsed_json
     FROM ai_processing
   )
+  SELECT * FROM parsed_processing;
   
   -- Step A: Insert Malformed Responses into the Dead Letter Queue
   INSERT INTO ${ref("dlq_page_extractions")}
   (file_id, original_filename, page_num, raw_llm_response)
   SELECT 
     file_id, original_filename, page_num, raw_json_string
-  FROM parsed_processing
+  FROM current_batch_processing
   WHERE parsed_json IS NULL AND raw_json_string IS NOT NULL;
 
   -- Step B: Insert Successfully Parsed JSON into the Main Table
@@ -150,7 +159,8 @@ LOOP
         JSON_VALUE(edge, '$.source_node_name') AS source_node_name,
         JSON_VALUE(edge, '$.target_node_name') AS target_node_name,
         JSON_VALUE(edge, '$.ontological_relationship') AS ontological_relationship,
-        JSON_VALUE(edge, '$.evidence_insight') AS evidence_insight
+        JSON_VALUE(edge, '$.evidence_insight') AS evidence_insight,
+        CAST(JSON_VALUE(edge, '$.confidence_score') AS FLOAT64) AS confidence_score
       FROM UNNEST(JSON_QUERY_ARRAY(parsed_json, '$.extracted_edges')) AS edge
     ) AS extracted_edges,
     ARRAY(
@@ -159,7 +169,7 @@ LOOP
         JSON_VALUE(insight, '$.inferred_category') AS inferred_category
       FROM UNNEST(JSON_QUERY_ARRAY(parsed_json, '$.unbound_insights')) AS insight
     ) AS unbound_insights
-  FROM parsed_processing
+  FROM current_batch_processing
   WHERE parsed_json IS NOT NULL
   -- Filter out pages where Gemini found nothing
   AND (
@@ -168,4 +178,4 @@ LOOP
     OR ARRAY_LENGTH(JSON_QUERY_ARRAY(parsed_json, '$.unbound_insights')) > 0
   );
      
-END LOOP;
+END LOOP;P;

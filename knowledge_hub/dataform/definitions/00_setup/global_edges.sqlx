@@ -11,5 +11,6 @@ CREATE TABLE IF NOT EXISTS ${self()} (
     source_node_id STRING,
     target_node_id STRING,
     relationship_type STRING,
-    evidence_insight STRING
+    evidence_insight STRING,
+    confidence_score FLOAT64
 );

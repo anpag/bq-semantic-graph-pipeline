@@ -1,0 +1,6 @@
+config {
+  type: "declaration",
+  schema: "kg_ontology_master",
+  name: "onto_data_properties",
+  description: "Strict schema mapping defining which properties (attributes) are allowed for each ontology class."
+}

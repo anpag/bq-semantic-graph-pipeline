@@ -24,19 +24,28 @@ ai_processing AS (
       prompt => STRUCT(
         OBJ.MAKE_REF(uri) AS document,
         """
-        You are an AI Data Steward for a KG Knowledge Hub. Analyze this file's contents. 
-        Determine if it is a Lab Inventory log, an ELN Data Export, or a Tacit Knowledge Report. 
-        Extract the relevant Experiment IDs, Target Molecules, and a brief summary of what this data is for.
+        You are an Enterprise Knowledge Graph Architect. Read this entire document.
+        
+        TASK: Build a Master Entity Dictionary for this document.
+        Identify the primary entities (Molecules, Solvents, Reagents, Equipment, Diseases, Assays) discussed.
+        For each entity, determine its strict Canonical Name (e.g., 'Toluene').
+        Identify ANY synonyms, acronyms, or lot numbers used in the text to refer to that entity (e.g., 'Toluol', 'lot_123').
+        
         Output ONLY a valid JSON object matching this schema:
         {
-          "file_category": "INVENTORY | ELN_DATA | TACIT_REPORT | UNKNOWN",
-          "experiment_id": "string or null",
-          "target_molecules": ["string"],
-          "summary": "string"
+          "global_context_summary": "A 1-2 sentence technical summary of the document's purpose.",
+          "primary_ontology_class": "The overarching type of document (e.g., Experiment_Report, SOP, Equipment_Manual)",
+          "entity_dictionary": [
+            {
+              "canonical_name": "String (The standard scientific name)",
+              "ontology_class": "String (choose from: chemical entity, material entity, device, assay, data item, process)",
+              "synonyms_used_in_text": ["String"]
+            }
+          ]
         }
         """ AS text
       ),
-      output_schema => 'file_category STRING, experiment_id STRING, target_molecules ARRAY<STRING>, summary STRING',
+      output_schema => 'global_context_summary STRING, primary_ontology_class STRING, entity_dictionary ARRAY<STRUCT<canonical_name STRING, ontology_class STRING, synonyms_used_in_text ARRAY<STRING>>>',
       endpoint => 'gemini-2.5-pro',
       connection_id => '${dataform.projectConfig.vars.connection_id}',
       model_params => JSON '{"generationConfig": {"temperature": 0.2, "maxOutputTokens": 8192}}'
@@ -49,5 +58,5 @@ SELECT
   gcs_landing_uri,
   'ai_router' as submitter_id,
   'ROUTED' as processing_status,
-  PARSE_JSON(TO_JSON_STRING(ai_output)) as pipeline_lineage_tags
+  PARSE_JSON(JSON_VALUE(ai_output.full_response, '$.candidates[0].content.parts[0].text')) as pipeline_lineage_tags
 FROM ai_processing;

@@ -14,33 +14,23 @@ BigQuery ML's native `AI.GENERATE` supports binding to external Vertex AI Cache 
 
 ## Part 1: Dataform Extraction Layer (BigQuery `AI.GENERATE`)
 
-### 1. The AI Router (Document Classification)
-*   **File Path:** `knowledge_hub/dataform/definitions/02_ai_router/route_landing_files.sqlx`
-*   **Execution Context:** Runs in a SQL loop, processing batches of 50 new files at a time to prevent transaction timeouts. The actual document content is passed to Gemini securely using BigQuery's `OBJ.MAKE_REF(uri)` function.
+### 1. The AI Router (Document Classification & Canonicalization)
+*   **File Path:** `knowledge_hub/dataform/definitions/01_document_canonicalization/route_landing_files.sqlx`
+*   **Execution Context:** Runs in a SQL loop, processing batches of documents to establish global context.
 *   **Model:** `gemini-2.5-pro`
 *   **Parameters:**
-    *   `temperature: 0.2` (Low temperature for deterministic classification)
+    *   `temperature: 0.2`
     *   `maxOutputTokens: 8192`
-*   **Output Schema (Enforced):** `ontology_class STRING, experiment_id STRING, target_molecules ARRAY<STRING>, summary STRING`
-*   **Prompt Text:**
-    ```text
-    You are an AI Data Steward for a KG Knowledge Hub. Analyze this file's contents against the kg.owl ontology. 
-    Determine its ontological class. Is it an Inventory_Log, an Experiment_Data_Set, 
-    or an Experiment_Report? 
-    Extract the relevant Experiment IDs, Target Molecules, and a brief summary of what this data is for.
-    Output ONLY a valid JSON object matching this schema...
-    ```
+*   **Output Schema (Enforced):** Includes `global_context_summary`, `primary_ontology_class`, and the `entity_dictionary`.
 
 ### 2. Generic Triples Extraction (Page-Level)
-*   **File Path:** `knowledge_hub/dataform/definitions/03_tacit_extraction/page_level_extractions.sqlx`
-*   **Execution Context:** Processes exactly 1 document per transaction to avoid BigQuery timeouts. It uses a `CROSS JOIN UNNEST` to iterate through the estimated number of pages in the document.
-*   **Variables Injected:** The current page number (`page_num`) is injected via SQL `%d` formatting three times into the prompt to ensure the LLM strictly bounds its extraction to that single page.
-*   **Ontology Context:** Injected dynamically using the `cachedContent` argument via `FORMAT()` targeting the Vertex Cache ID configured in `workflow_settings.yaml`.
+*   **File Path:** `knowledge_hub/dataform/definitions/02_triples_extraction/page_level_extractions.sqlx`
+*   **Execution Context:** Processes documents on a per-page basis using a parallel `CROSS JOIN`.
+*   **Ontology Context:** Injected dynamically using Vertex Context Caching.
 *   **Model:** `gemini-2.5-pro`
 *   **Parameters:**
-    *   `temperature: 0.0` (Absolute zero for strict entity extraction and schema adherence. No "thinking" is enabled).
+    *   `temperature: 0.0`
     *   `maxOutputTokens: 8192`
-*   **Output Schema (Enforced):** A generic arrays of `extracted_nodes` and `extracted_edges` for Triples extraction.
 *   **Prompt Text:**
     ```text
     You are an expert Data Extraction Agent at ACME.

@@ -21,7 +21,7 @@ The architecture decouples the physical database schema from the semantic ontolo
 Unstructured files (PDF, CSV, TXT) deposited into the GCS landing zone are automatically registered via the `raw_landing_objects.sqlx` Object Table. BigQuery authenticates access to these payloads via a dedicated Cloud Resource Connection, eliminating the need for signed URL generation.
 
 ### 2. Document-Level Canonicalization (`01_document_canonicalization/`)
-Upon detection of an unmapped file URI, the classification pipeline reads the complete document to establish global context. The pipeline executes a deterministic entity resolution step, mapping localized textual synonyms and laboratory aliases (e.g., lot numbers, shorthand) to strict canonical identifiers (e.g., mapping `lot:102665358` to `Fenofibrate`). This output is persisted to the `document_master_record`.
+Upon detection of an unmapped file URI, the classification pipeline reads the complete document to establish global context. The pipeline executes a deterministic entity resolution step, mapping localized textual synonyms and laboratory aliases (e.g., lot numbers, shorthand) to strict canonical identifiers (e.g., mapping `Lot:Alpha-123` or `THF` to `Tetrahydrofuran`). This output is persisted to the `document_master_record`.
 
 ### 3. Dynamic Ontology Subsetting
 To prevent context window saturation and mitigate instruction-following degradation in the LLM, the architecture dynamically subsets the target ontology prior to extraction. BigQuery `VECTOR_SEARCH` is utilized to match the document's global context vector against the materialized ontology table, generating a constrained, highly targeted subset of permissible classes and properties unique to the source document.

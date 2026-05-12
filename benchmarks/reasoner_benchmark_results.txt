@@ -1,0 +1,41 @@
+Page 1: [assay] -[evaluates]-> [chemical entity] | Raw Valid: False | Reasoner Valid: True
+Page 1: [assay] -[measures_property_of]-> [chemical entity] | Raw Valid: False | Reasoner Valid: True
+Page 1: [assay] -[has_part]-> [material entity] | Raw Valid: False | Reasoner Valid: False
+Page 1: [assay] -[has_part]-> [material entity] | Raw Valid: False | Reasoner Valid: False
+Page 1: [assay] -[has_part]-> [material entity] | Raw Valid: False | Reasoner Valid: False
+Page 1: [assay] -[has_part]-> [material entity] | Raw Valid: False | Reasoner Valid: False
+Page 8: [chemical entity] -[measures_property_of]-> [data item] | Raw Valid: False | Reasoner Valid: False
+Page 8: [chemical entity] -[measures_property_of]-> [data item] | Raw Valid: False | Reasoner Valid: False
+Page 8: [chemical entity] -[measures_property_of]-> [data item] | Raw Valid: False | Reasoner Valid: False
+Page 8: [chemical entity] -[measures_property_of]-> [data item] | Raw Valid: False | Reasoner Valid: False
+Page 8: [chemical entity] -[measures_property_of]-> [data item] | Raw Valid: False | Reasoner Valid: False
+Page 8: [chemical entity] -[measures_property_of]-> [data item] | Raw Valid: False | Reasoner Valid: False
+Page 8: [chemical entity] -[measures_property_of]-> [data item] | Raw Valid: False | Reasoner Valid: False
+Page 8: [chemical entity] -[measures_property_of]-> [data item] | Raw Valid: False | Reasoner Valid: False
+Page 8: [material entity] -[measures_property_of]-> [data item] | Raw Valid: False | Reasoner Valid: False
+Page 8: [material entity] -[measures_property_of]-> [data item] | Raw Valid: False | Reasoner Valid: False
+Page 8: [material entity] -[measures_property_of]-> [data item] | Raw Valid: False | Reasoner Valid: False
+Page 8: [material entity] -[measures_property_of]-> [data item] | Raw Valid: False | Reasoner Valid: False
+Page 8: [material entity] -[measures_property_of]-> [data item] | Raw Valid: False | Reasoner Valid: False
+Page 8: [chemical entity] -[measures_property_of]-> [data item] | Raw Valid: False | Reasoner Valid: False
+Page 8: [chemical entity] -[measures_property_of]-> [data item] | Raw Valid: False | Reasoner Valid: False
+Page 8: [chemical entity] -[measures_property_of]-> [data item] | Raw Valid: False | Reasoner Valid: False
+Page 8: [chemical entity] -[measures_property_of]-> [data item] | Raw Valid: False | Reasoner Valid: False
+Page 8: [chemical entity] -[measures_property_of]-> [data item] | Raw Valid: False | Reasoner Valid: False
+Page 11: [assay] -[uses_device]-> [device] | Raw Valid: False | Reasoner Valid: True
+Page 11: [assay] -[evaluates]-> [chemical entity] | Raw Valid: False | Reasoner Valid: True
+Page 11: [assay] -[has_part]-> [material entity] | Raw Valid: False | Reasoner Valid: False
+Page 11: [data item] -[measures_property_of]-> [chemical entity] | Raw Valid: False | Reasoner Valid: False
+Page 11: [data item] -[measures_property_of]-> [chemical entity] | Raw Valid: False | Reasoner Valid: False
+Page 11: [process] -[has_part]-> [data item] | Raw Valid: False | Reasoner Valid: False
+Page 11: [process] -[has_part]-> [data item] | Raw Valid: False | Reasoner Valid: False
+Page 11: [process] -[has_part]-> [data item] | Raw Valid: False | Reasoner Valid: False
+Page 14: [assay] -[uses_device]-> [device] | Raw Valid: False | Reasoner Valid: True
+Page 14: [assay] -[evaluates]-> [data item] | Raw Valid: False | Reasoner Valid: False
+Page 14: [data item] -[measures_property_of]-> [chemical entity] | Raw Valid: False | Reasoner Valid: False
+Page 14: [assay] -[evaluates]-> [data item] | Raw Valid: False | Reasoner Valid: False
+Page 14: [data item] -[measures_property_of]-> [chemical entity] | Raw Valid: False | Reasoner Valid: False
+Page 14: [assay] -[has_part]-> [material entity] | Raw Valid: False | Reasoner Valid: False
+Page 14: [assay] -[has_part]-> [material entity] | Raw Valid: False | Reasoner Valid: False
+Page 15: [process] -[evaluates]-> [data item] | Raw Valid: False | Reasoner Valid: False
+Page 15: [data item] -[measures_property_of]-> [chemical entity] | Raw Valid: False | Reasoner Valid: False
