@@ -43,7 +43,7 @@ LOOP
     WHERE JSON_EXTRACT_SCALAR(pipeline_lineage_tags, '$.primary_ontology_class') IS NOT NULL
       AND processing_status = 'ROUTED'
       AND file_id NOT IN (SELECT DISTINCT file_id FROM ${self()})
-    LIMIT 1 -- Batch process 1 document at a time to prevent transaction timeouts with large page counts
+    LIMIT 50 -- Enterprise scaling: Vectorize 50 documents simultaneously
   ),
   pages AS (
     SELECT 

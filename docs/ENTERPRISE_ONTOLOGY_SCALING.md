@@ -64,8 +64,8 @@ FROM extracted_edges edge
 WHERE NOT EXISTS (
   SELECT 1 FROM GRAPH_TABLE(kg_ontology.master_graph
     -- Traverse up the subclass hierarchy to verify Domain/Range constraints
-    MATCH (source_class)-[:SUBCLASS_OF*0..5]->(valid_domain),
-          (target_class)-[:SUBCLASS_OF*0..5]->(valid_range)
+    MATCH (source_class) (-[:SUBCLASS_OF]->){0, 5} (valid_domain),
+          (target_class) (-[:SUBCLASS_OF]->){0, 5} (valid_range)
     WHERE source_class.label = edge.source_ontology_class
       AND target_class.label = edge.target_ontology_class
       AND valid_domain.property_domain = edge.ontological_relationship

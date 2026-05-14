@@ -1,7 +1,7 @@
 config {
   type: "operations",
   hasOutput: true,
-  schema: "kg_knowledge_hub",
+  schema: "semantic_ontology_graph",
   name: "kg_graph",
   description: "The primary KG Knowledge Hub Property Graph (Unified Schema).",
   dependencies: [
@@ -13,12 +13,12 @@ config {
 
 CREATE OR REPLACE PROPERTY GRAPH ${self()}
   NODE TABLES (
-    `${dataform.projectConfig.defaultDatabase}.kg_graph_data.global_nodes` KEY(node_id),
-    `${dataform.projectConfig.defaultDatabase}.kg_knowledge_hub.document_master_record` KEY(file_id)
+    `${dataform.projectConfig.defaultDatabase}.semantic_ontology_graph_data.global_nodes` AS global_nodes KEY(node_id),
+    `${dataform.projectConfig.defaultDatabase}.semantic_ontology_graph.document_master_record` AS document_master_record KEY(file_id)
   )
   EDGE TABLES (
-    `${dataform.projectConfig.defaultDatabase}.kg_graph_data.global_edges` KEY(edge_id)
-      SOURCE KEY(source_node_id) REFERENCES `${dataform.projectConfig.defaultDatabase}.kg_graph_data.global_nodes`(node_id)
-      DESTINATION KEY(target_node_id) REFERENCES `${dataform.projectConfig.defaultDatabase}.kg_graph_data.global_nodes`(node_id)
+    `${dataform.projectConfig.defaultDatabase}.semantic_ontology_graph_data.global_edges` AS global_edges KEY(edge_id)
+      SOURCE KEY(source_node_id) REFERENCES global_nodes(node_id)
+      DESTINATION KEY(target_node_id) REFERENCES global_nodes(node_id)
       LABEL CONNECTS
   );

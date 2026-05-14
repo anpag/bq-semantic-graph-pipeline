@@ -4,7 +4,7 @@ config {
   schema: "kg_graph_data",
   name: "insert_global_graph",
   description: "Merge generic extracted nodes and edges from page level extractions.",
-  dependencies: ["page_level_extractions", "global_nodes", "global_edges", "embedding_model", "onto_classes", "dlq_semantic_failures"]
+  dependencies: ["page_level_extractions", "global_nodes", "global_edges", "embedding_model", "onto_classes", "dlq_semantic_failures", "dlq_invalid_topology"]
 }
 
 TRUNCATE TABLE ${ref("global_nodes")};
@@ -77,16 +77,99 @@ SELECT
 FROM unnested_nodes u
 WHERE TRIM(u.ontology_class) NOT IN (SELECT class_name FROM ${ref("semantic_ontology_graph", "onto_classes")});
 
--- 3. Insert Edges
+-- 3. Edge Topology SHACL Validation (Valid Edges)
 INSERT INTO ${ref("global_edges")}
 (edge_id, source_node_id, target_node_id, relationship_type, evidence_insight, confidence_score)
-SELECT DISTINCT
-  GENERATE_UUID() AS edge_id,
-  TO_HEX(MD5(UPPER(TRIM(edge.source_node_name)))) AS source_node_id,
-  TO_HEX(MD5(UPPER(TRIM(edge.target_node_name)))) AS target_node_id,
-  TRIM(edge.ontological_relationship) AS relationship_type,
-  edge.evidence_insight,
-  edge.confidence_score
-FROM ${ref("page_level_extractions")},
-UNNEST(extracted_edges) AS edge
-WHERE edge.source_node_name IS NOT NULL AND edge.target_node_name IS NOT NULL;
+WITH unnested_nodes AS (
+  SELECT DISTINCT
+    file_id,
+    page_num,
+    node.node_name,
+    node.ontology_class
+  FROM ${ref("page_level_extractions")},
+  UNNEST(extracted_nodes) AS node
+  WHERE node.node_name IS NOT NULL
+),
+edges_with_classes AS (
+  SELECT DISTINCT
+    GENERATE_UUID() AS edge_id,
+    TO_HEX(MD5(UPPER(TRIM(edge.source_node_name)))) AS source_node_id,
+    TO_HEX(MD5(UPPER(TRIM(edge.target_node_name)))) AS target_node_id,
+    TRIM(edge.ontological_relationship) AS relationship_type,
+    edge.evidence_insight,
+    edge.confidence_score,
+    TRIM(edge.source_node_name) AS source_node_name,
+    TRIM(edge.target_node_name) AS target_node_name,
+    TRIM(sn.ontology_class) AS source_class,
+    TRIM(tn.ontology_class) AS target_class,
+    p.file_id,
+    p.page_num
+  FROM ${ref("page_level_extractions")} p,
+  UNNEST(extracted_edges) AS edge
+  JOIN unnested_nodes sn ON sn.file_id = p.file_id AND sn.page_num = p.page_num AND TRIM(sn.node_name) = TRIM(edge.source_node_name)
+  JOIN unnested_nodes tn ON tn.file_id = p.file_id AND tn.page_num = p.page_num AND TRIM(tn.node_name) = TRIM(edge.target_node_name)
+  WHERE edge.source_node_name IS NOT NULL AND edge.target_node_name IS NOT NULL
+),
+valid_edges AS (
+  SELECT e.*
+  FROM edges_with_classes e
+  WHERE EXISTS (
+    SELECT 1 FROM GRAPH_TABLE(kg_ontology.master_graph
+      MATCH 
+        (sc:Class) (-[:SUBCLASS_OF]->){0, 5} (domain:Class),
+        (tc:Class) (-[:SUBCLASS_OF]->){0, 5} (`range`:Class),
+        (p:Property)-[:DOMAIN]->(domain),
+        (p)-[:RANGE]->(`range`)
+      WHERE sc.label = e.source_class
+        AND tc.label = e.target_class
+        AND p.label = e.relationship_type
+    )
+  )
+)
+SELECT 
+  edge_id, source_node_id, target_node_id, relationship_type, evidence_insight, confidence_score
+FROM valid_edges;
+
+-- 4. Insert Invalid Edges into Topology DLQ
+INSERT INTO ${ref("dlq_invalid_topology")}
+(file_id, page_num, source_node_name, source_class, target_node_name, target_class, relationship_type)
+WITH unnested_nodes AS (
+  SELECT DISTINCT
+    file_id,
+    page_num,
+    node.node_name,
+    node.ontology_class
+  FROM ${ref("page_level_extractions")},
+  UNNEST(extracted_nodes) AS node
+  WHERE node.node_name IS NOT NULL
+),
+edges_with_classes AS (
+  SELECT DISTINCT
+    TRIM(edge.source_node_name) AS source_node_name,
+    TRIM(edge.target_node_name) AS target_node_name,
+    TRIM(edge.ontological_relationship) AS relationship_type,
+    TRIM(sn.ontology_class) AS source_class,
+    TRIM(tn.ontology_class) AS target_class,
+    p.file_id,
+    p.page_num
+  FROM ${ref("page_level_extractions")} p,
+  UNNEST(extracted_edges) AS edge
+  JOIN unnested_nodes sn ON sn.file_id = p.file_id AND sn.page_num = p.page_num AND TRIM(sn.node_name) = TRIM(edge.source_node_name)
+  JOIN unnested_nodes tn ON tn.file_id = p.file_id AND tn.page_num = p.page_num AND TRIM(tn.node_name) = TRIM(edge.target_node_name)
+  WHERE edge.source_node_name IS NOT NULL AND edge.target_node_name IS NOT NULL
+)
+SELECT
+  e.file_id, e.page_num, e.source_node_name, e.source_class, e.target_node_name, e.target_class, e.relationship_type
+FROM edges_with_classes e
+WHERE NOT EXISTS (
+  SELECT 1 FROM GRAPH_TABLE(kg_ontology.master_graph
+    MATCH 
+      (sc:Class) (-[:SUBCLASS_OF]->){0, 5} (domain:Class),
+      (tc:Class) (-[:SUBCLASS_OF]->){0, 5} (`range`:Class),
+      (p:Property)-[:DOMAIN]->(domain),
+      (p)-[:RANGE]->(`range`)
+    WHERE sc.label = e.source_class
+      AND tc.label = e.target_class
+      AND p.label = e.relationship_type
+  )
+);
