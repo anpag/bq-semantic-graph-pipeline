@@ -14,11 +14,16 @@ config {
 CREATE OR REPLACE PROPERTY GRAPH ${self()}
   NODE TABLES (
     `${dataform.projectConfig.defaultDatabase}.semantic_ontology_graph_data.global_nodes` AS global_nodes KEY(node_id),
-    `${dataform.projectConfig.defaultDatabase}.semantic_ontology_graph.document_master_record` AS document_master_record KEY(file_id)
+    `${dataform.projectConfig.defaultDatabase}.semantic_ontology_graph.document_master_record` AS document_master_record KEY(file_id),
+    `${dataform.projectConfig.defaultDatabase}.semantic_ontology_graph_data.node_aliases` AS node_aliases KEY(node_id) LABEL Alias
   )
   EDGE TABLES (
     `${dataform.projectConfig.defaultDatabase}.semantic_ontology_graph_data.global_edges` AS global_edges KEY(edge_id)
       SOURCE KEY(source_node_id) REFERENCES global_nodes(node_id)
       DESTINATION KEY(target_node_id) REFERENCES global_nodes(node_id)
-      LABEL CONNECTS
+      LABEL CONNECTS,
+    `${dataform.projectConfig.defaultDatabase}.semantic_ontology_graph_data.edge_close_match` AS edge_close_match KEY(edge_id)
+      SOURCE KEY(source_node_id) REFERENCES node_aliases(node_id)
+      DESTINATION KEY(target_node_id) REFERENCES global_nodes(node_id)
+      LABEL closeMatch
   );

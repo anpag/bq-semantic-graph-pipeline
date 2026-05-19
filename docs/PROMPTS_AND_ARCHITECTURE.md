@@ -61,3 +61,10 @@ BigQuery ML's native `AI.GENERATE` supports binding to external Vertex AI Cache 
       ]
     }
     ```
+
+### Virtual Labeled Property Graph (LPG) Integration
+The core extractions exist as raw Triples (`global_nodes`, `global_edges`). To afford Generative AI Agents predictable targets, the architecture layers BigQuery Views (`Node_Molecule`, `Node_Experiment`) dynamically atop the `global_nodes` table. The final Property Graph maps directly to these views.
+
+**Handling Aliases (SKOS closeMatch):**
+Aliases and lot numbers encountered during extraction are natively resolved via semantic web standards (SKOS). They are physically materialized into the graph as `Alias` nodes and connected to their standard entity via a `closeMatch` edge. Agents can natively query paths like:
+`MATCH (a:Alias {name: 'Lot-1234'})-[:closeMatch]->(m:Molecule)`
