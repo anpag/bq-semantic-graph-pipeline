@@ -32,35 +32,35 @@ The pipeline operates as a serverless, database-driven extraction and orchestrat
 
 ```mermaid
 flowchart TD
-    subgraph Landing Zone (GCS)
+    subgraph "Landing Zone (GCS)"
         A["Unstructured Files: PDFs, PPTXs, CSVs"] -->|Uploaded| B["GCS Ingestion Bucket"]
     end
 
-    subgraph Object Registration (BigQuery)
+    subgraph "Object Registration (BigQuery)"
         B -->|Auto-Registered| C["raw_landing_objects Object Table"]
         C -->|INSERT NEW RECORD| D[("document_master_record")]
     end
 
-    subgraph Phase 1: Canonicalization & Classification
+    subgraph "Phase 1: Canonicalization & Classification"
         D -->|AI Router: Gemini 2.5 Pro| E["Analyze Entire Document"]
         E -->|Output Struct| F["Establish Master Entity Dictionary"]
         F -->|Map local aliases| G["Update document_master_record with pipeline_lineage_tags"]
     end
 
-    subgraph Phase 2: Page-Level Bounded Extraction
+    subgraph "Phase 2: Page-Level Bounded Extraction"
         G -->|Parallel CROSS JOIN| H["Page Loop Generation"]
         H -->|Page-by-Page Extraction| I["AI.GENERATE with Gemini 2.5 Pro"]
         I -->|Bounded by Context Cache| J["Staging: page_level_extractions"]
     end
 
-    subgraph Phase 3: Relational SHACL Enforcement
+    subgraph "Phase 3: Relational SHACL Enforcement"
         J -->|Validation Engine| K{"Relational SHACL Joins & GQL Path checks"}
         K -->|Class Hallucination| L["DLQ: dlq_semantic_failures"]
         K -->|Edge/Domain Violation| M["DLQ: dlq_invalid_topology"]
         K -->|Success| N[("global_nodes & global_edges")]
     end
 
-    subgraph Phase 4: Property Graph Synthesis
+    subgraph "Phase 4: Property Graph Synthesis"
         N -->|TO_HEX MD5 Node IDs| O["Assemble BigQuery Property Graph: kg_graph"]
         O -->|Queryable| P["Downstream Agents / ISO GQL Queries"]
     end
@@ -160,12 +160,12 @@ Treating LLM extraction output as "untrusted data" is fundamental to maintaining
 flowchart TD
     Start([Extracted Page Triples]) --> Rule1Check{"node_class IN onto_classes?"}
 
-    subgraph Vocabulary Verification (Rule 1)
+    subgraph "Vocabulary Verification (Rule 1)"
         Rule1Check -->|No / Hallucinated| DLQ1["DLQ: dlq_semantic_failures"]
         Rule1Check -->|Yes / Valid| Pass1["Valid Nodes"]
     end
 
-    subgraph Topological Constraint Validation (Rule 2)
+    subgraph "Topological Constraint Validation (Rule 2)"
         Pass1 --> Rule2Check{"Does relationship match Domain/Range in Ontology Meta-Graph?"}
         Rule2Check -->|No / Violation| DLQ2["DLQ: dlq_invalid_topology"]
         Rule2Check -->|Yes / Valid| Pass2["Valid Edges"]
