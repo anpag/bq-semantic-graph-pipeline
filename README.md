@@ -38,5 +38,6 @@ LLM output is treated as untrusted data until validated. Dataform executes a str
 *   **Validation Success:** Valid edges are deduplicated via MD5 hashing and inserted into `global_nodes` and `global_edges`. The final topology is queryable via BigQuery's native ISO GQL implementation (`kg_graph.sqlx`).
 
 ## Further Documentation
+* **[Pipeline & Graph Architecture](docs/PIPELINE_AND_GRAPH_ARCHITECTURE.md)**: Explains the end-to-end ingestion flow, the virtual LPG schema, and the relational SHACL validation engine using ISO GQL.
 * **[Enterprise Ontology Scaling](docs/ENTERPRISE_ONTOLOGY_SCALING.md)**: Details the CI/CD pipeline and the use of deductive reasoners (`owlrl`) for expanding BFO restrictions into flat relational rules.
 * **[SQL Prompts & Architecture](docs/PROMPTS_AND_ARCHITECTURE.md)**: Technical breakdown of the `AI.GENERATE` schemas and entity canonicalization directives.
