@@ -1,0 +1,126 @@
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix afo: <http://purl.allotrope.org/ontologies/common#> .
+@prefix chmo: <http://purl.obolibrary.org/obo/chmo#> .
+@prefix qudt: <http://qudt.org/schema/qudt/> .
+@prefix app: <http://example.org/adhesives/ontology/> .
+
+# Classes
+app:Project a owl:Class ;
+    rdfs:subClassOf afo:Project ;
+    rdfs:label "Project" ;
+    skos:definition "A planned undertaking or R&D initiative designed to develop or test specific adhesive products." ;
+    skos:altLabel "R&D Project", "Initiative", "Program" .
+
+app:AdhesiveClass a owl:Class ;
+    rdfs:subClassOf afo:MaterialClass ;
+    rdfs:label "Adhesive Class" ;
+    skos:definition "The classification or category of the adhesive formulation based on chemistry and curing mechanism." ;
+    skos:altLabel "Adhesive Type", "Chemistry Class" .
+
+app:Formulation a owl:Class ;
+    rdfs:subClassOf afo:Formulation ;
+    rdfs:label "Formulation" ;
+    skos:definition "A specific mixture of chemical ingredients combined in defined proportions to produce an adhesive." ;
+    skos:altLabel "Recipe", "Mix", "Blend", "Formulation ID" .
+
+app:Ingredient a owl:Class ;
+    rdfs:subClassOf afo:Ingredient ;
+    rdfs:label "Ingredient" ;
+    skos:definition "A chemical substance or material added to a formulation." ;
+    skos:altLabel "Component", "Chemical", "Raw Material" .
+
+app:IngredientRole a owl:Class ;
+    rdfs:subClassOf afo:Role ;
+    rdfs:label "Ingredient Role" ;
+    skos:definition "The functional role or purpose that an ingredient serves within the formulation." ;
+    skos:altLabel "Function", "Component Class", "Ingredient Type" .
+
+app:Test a owl:Class ;
+    rdfs:subClassOf chmo:Test ;
+    rdfs:label "Test" ;
+    skos:definition "A standardized procedure or method used to measure the physical or chemical properties of the adhesive." ;
+    skos:altLabel "Test Method", "Assay", "Standard Test" .
+
+app:Measurement a owl:Class ;
+    rdfs:subClassOf chmo:Measurement ;
+    rdfs:label "Measurement" ;
+    skos:definition "The specific parameter or property being measured during a test." ;
+    skos:altLabel "Metric", "Measured Property", "Target" .
+
+app:TestMaterialSpec a owl:Class ;
+    rdfs:subClassOf afo:Material ;
+    rdfs:label "Test Material Spec" ;
+    skos:definition "The specification of the substrate or material on which the adhesive is applied and tested." ;
+    skos:altLabel "Substrate", "Test Material", "Adherend" .
+
+app:ProcessParameter a owl:Class ;
+    rdfs:subClassOf afo:ProcessParameter ;
+    rdfs:label "Process Parameter" ;
+    skos:definition "A fixed parameter, preparation step, or process condition applied during the testing procedure." ;
+    skos:altLabel "Fixed Parameter", "Preparation Step", "Process Condition" .
+
+app:EnvironmentalCondition a owl:Class ;
+    rdfs:subClassOf afo:EnvironmentalCondition ;
+    rdfs:label "Environmental Condition" ;
+    skos:definition "An environmental variable or condition (such as temperature or humidity) under which the test is conducted." ;
+    skos:altLabel "Variable Parameter", "Test Condition" .
+
+app:TestResult a owl:Class ;
+    rdfs:subClassOf afo:Result ;
+    rdfs:label "Test Result" ;
+    skos:definition "The quantitative or qualitative outcome recorded from a measurement under specific conditions." ;
+    skos:altLabel "Value", "Outcome", "Measurement Value" .
+
+# Object Properties
+app:has_formulation a owl:ObjectProperty ;
+    rdfs:domain app:Project ;
+    rdfs:range app:Formulation ;
+    rdfs:label "has formulation" .
+
+app:belongs_to_class a owl:ObjectProperty ;
+    rdfs:domain app:Formulation ;
+    rdfs:range app:AdhesiveClass ;
+    rdfs:label "belongs to class" .
+
+app:has_ingredient a owl:ObjectProperty ;
+    rdfs:domain app:Formulation ;
+    rdfs:range app:Ingredient ;
+    rdfs:label "has ingredient" .
+
+app:has_role a owl:ObjectProperty ;
+    rdfs:domain app:Ingredient ;
+    rdfs:range app:IngredientRole ;
+    rdfs:label "has role" .
+
+app:subjected_to_test a owl:ObjectProperty ;
+    rdfs:domain app:Formulation ;
+    rdfs:range app:Test ;
+    rdfs:label "subjected to test" .
+
+app:produces_measurement a owl:ObjectProperty ;
+    rdfs:domain app:Test ;
+    rdfs:range app:Measurement ;
+    rdfs:label "produces measurement" .
+
+app:uses_substrate a owl:ObjectProperty ;
+    rdfs:domain app:Test ;
+    rdfs:range app:TestMaterialSpec ;
+    rdfs:label "uses substrate" .
+
+app:has_fixed_parameter a owl:ObjectProperty ;
+    rdfs:domain app:Test ;
+    rdfs:range app:ProcessParameter ;
+    rdfs:label "has fixed parameter" .
+
+app:has_variable_parameter a owl:ObjectProperty ;
+    rdfs:domain app:Test ;
+    rdfs:range app:EnvironmentalCondition ;
+    rdfs:label "has variable parameter" .
+
+app:has_result a owl:ObjectProperty ;
+    rdfs:domain app:Measurement ;
+    rdfs:range app:TestResult ;
+    rdfs:label "has result" .

@@ -1,0 +1,13 @@
+Our journey begins by uploading the FlyHigh file, which is packed with our initial experimental data. The moment it’s submitted, you’ll see the system automagically generate the base ontology all on its own.
+
+To test how it handles messy realities, we then upload the HotDump file. This one contains new attributes but also a few errors. You'll watch the system adapt by updating the ontology, automatically resolving data conflicts, detecting those hidden errors, and raising clear data quality alerts.
+
+Next, we prove the platform's flexibility with different data structures. We upload the InstaDust file, which is formatted in the specific "Albert" tabular format, showing it can handle various structured layouts. We then push the boundaries further by uploading a PDF and even a handwritten file, demonstrating that unstructured data is no sweat for the system to process.
+
+Once the system has ingested all this data, we start asking it questions. We begin simply with, "What info do you have on Fatigue Resistance of FH-001?" which perfectly highlights how easy it is to access specific data elements. Then we get more complex: "Do we have a formulation without adhesive failure in the ASTM D3165 experiment?" This step shows off the search capabilities and is where we mention how the system integrates with external data, like searching the web to fill in the gaps.
+
+Moving from text to visuals, we ask, "What is the lap shear strength as a function of temperature in FH-003?" The system responds by visualizing this data, pulling insights across the entire data corpus. We then dive into statistical analysis by asking what impact the concentration of a toughening agent has on fatigue resistance across the FlyHigh Gloo project. You'll see the system effortlessly correlate the data to give us an answer.
+
+Then comes a major structural pivot. We decide to completely change the underlying ontology. Instead of having "Tests" directly attached to "Formulations," we introduce a new "Experiment" grouping within Projects that houses Formulations, Tests, and Decisions. The key takeaway here is that you'll see the ontology change dynamically without breaking any of the analytics capabilities we just used.
+
+To wrap things up, we put the system's exporting capabilities to the test. We create a brand new project called Superflybaby, pull in every Experiment that involves Peel tests, and successfully download that specific batch of data back into the Albert format, proving the system's interfacing and data conversion skills. Finally, we conclude the demo by exploring the versioning of the ontology, leaving the door open for future updates.

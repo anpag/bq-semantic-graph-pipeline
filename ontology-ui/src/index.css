@@ -1,0 +1,157 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  /* Apple-inspired Light Theme Colors */
+  --bg-base: #F5F5F7; /* Very light gray, almost off-white */
+  --bg-glass: rgba(255, 255, 255, 0.7);
+  --bg-glass-hover: rgba(255, 255, 255, 0.85);
+  
+  --border-glass: rgba(0, 0, 0, 0.05);
+  --border-active: rgba(0, 122, 255, 0.5); /* Apple Blue */
+  
+  --text-main: #1D1D1F; /* Apple dark gray text */
+  --text-muted: #86868B;
+  --accent-blue: #0071E3; /* Apple Blue */
+  --accent-orange: #FF9500;
+  --accent-red: #FF3B30;
+  --accent-green: #34C759;
+  
+  --shadow-glass: 0 4px 24px rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  
+  --header-height: 44px; /* Thin top menu */
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;
+  background-color: var(--bg-base);
+  /* Subtle mesh or gradient background can add depth to glassmorphism */
+  background-image: 
+    radial-gradient(circle at 10% 20%, rgba(0, 122, 255, 0.03), transparent 30%),
+    radial-gradient(circle at 90% 80%, rgba(255, 149, 0, 0.03), transparent 30%);
+  color: var(--text-main);
+  height: 100vh;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Glassmorphism Utilities (Apple Style Frosted Glass) */
+.glass-panel {
+  background: var(--bg-glass);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border-glass);
+  border-radius: 14px;
+  box-shadow: var(--shadow-glass);
+}
+
+.glass-header {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border-glass);
+  height: var(--header-height);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  z-index: 100;
+}
+
+.glass-button {
+  background: #FFFFFF;
+  border: 1px solid var(--border-glass);
+  color: var(--text-main);
+  padding: 6px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: var(--shadow-sm);
+}
+
+.glass-button:hover {
+  background: #F9F9F9;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+}
+
+.glass-button:active {
+  background: #F0F0F0;
+  transform: scale(0.98);
+}
+
+.glass-button.primary {
+  background: var(--accent-blue);
+  border-color: var(--accent-blue);
+  color: #FFFFFF;
+}
+
+.glass-button.primary:hover {
+  background: #0077ED;
+}
+
+/* App Layout */
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.main-content {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  padding: 20px;
+  gap: 20px;
+}
+
+/* Custom Scrollbar (Mac style) */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.25);
+}
+
+/* Typography */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-main);
+}
+
+.text-muted {
+  color: var(--text-muted);
+}
+
+.font-mono {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}

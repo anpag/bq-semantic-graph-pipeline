@@ -1,0 +1,5 @@
+dataformCoreVersion: 3.0.48
+defaultProject: semantic-graph-demo
+defaultLocation: EU
+defaultDataset: kg_ontology_production
+defaultAssertionDataset: kg_ontology_production_assertions

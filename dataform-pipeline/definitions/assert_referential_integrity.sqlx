@@ -1,0 +1,15 @@
+config {
+  type: "assertion"
+}
+
+SELECT
+  r.domain_class,
+  r.range_class
+FROM
+  ${ref("onto_rules")} AS r
+LEFT JOIN
+  ${ref("onto_classes")} AS c1 ON LOWER(TRIM(r.domain_class)) = LOWER(TRIM(c1.class_name))
+LEFT JOIN
+  ${ref("onto_classes")} AS c2 ON LOWER(TRIM(r.range_class)) = LOWER(TRIM(c2.class_name))
+WHERE
+  c1.class_name IS NULL OR c2.class_name IS NULL

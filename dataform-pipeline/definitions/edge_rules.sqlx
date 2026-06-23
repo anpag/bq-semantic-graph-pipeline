@@ -1,0 +1,17 @@
+config {
+  type: "table",
+  name: "edge_rules",
+  dependencies: ["assert_referential_integrity"]
+}
+
+SELECT
+  GENERATE_UUID() AS edge_id,
+  c1.uri AS source_uri,
+  c2.uri AS target_uri,
+  r.relationship_type
+FROM
+  ${ref("onto_rules")} AS r
+JOIN
+  ${ref("onto_classes")} AS c1 ON LOWER(TRIM(r.domain_class)) = LOWER(TRIM(c1.class_name))
+JOIN
+  ${ref("onto_classes")} AS c2 ON LOWER(TRIM(r.range_class)) = LOWER(TRIM(c2.class_name))

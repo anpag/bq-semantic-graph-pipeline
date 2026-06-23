@@ -1,0 +1,14 @@
+config {
+  type: "table",
+  name: "node_classes",
+  dependencies: ["assert_referential_integrity"]
+}
+
+SELECT
+  uri,
+  class_name,
+  definition,
+  synonyms,
+  example
+FROM
+  ${ref("onto_classes")}

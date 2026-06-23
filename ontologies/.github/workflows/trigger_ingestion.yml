@@ -1,0 +1,28 @@
+name: Trigger Ontology Ingestion
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  trigger-pipeline:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: 'read'
+      id-token: 'write' # Required for Workload Identity Federation
+
+    steps:
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: 'projects/359365678899/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
+          service_account: 'github-actions-sa@semantic-graph-demo.iam.gserviceaccount.com'
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Publish to Pub/Sub (Triggers Eventarc -> Cloud Run)
+        run: |
+          gcloud pubsub topics publish github-webhook-topic \
+            --project=semantic-graph-demo \
+            --message="{\"message\": \"Ontology updated\", \"commit_sha\": \"${{ github.sha }}\", \"ref\": \"${{ github.ref }}\"}"

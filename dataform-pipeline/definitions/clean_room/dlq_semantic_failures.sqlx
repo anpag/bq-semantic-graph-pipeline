@@ -1,0 +1,17 @@
+config {
+  type: "incremental",
+  schema: "kg_ontology_production",
+  name: "dlq_semantic_failures",
+  description: "Dead Letter Queue for semantic anomalies that the AI Agent could not confidently resolve. Requires Human-In-The-Loop review."
+}
+
+SELECT
+  CAST(NULL AS STRING) AS file_id,
+  CAST(NULL AS INT64) AS page_num,
+  CAST(NULL AS STRING) AS anomaly_type, -- "missing_unit" or "unrecognized_entity"
+  CAST(NULL AS STRING) AS raw_value,
+  CAST(NULL AS STRING) AS context,
+  CAST(NULL AS STRING) AS inferred_value,
+  CAST(NULL AS FLOAT64) AS confidence_score,
+  CAST(NULL AS TIMESTAMP) AS flagged_at
+LIMIT 0

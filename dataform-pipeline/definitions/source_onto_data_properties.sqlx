@@ -1,0 +1,6 @@
+config {
+  type: "declaration",
+  database: "semantic-graph-demo",
+  schema: "kg_ontology_staging",
+  name: "onto_data_properties"
+}

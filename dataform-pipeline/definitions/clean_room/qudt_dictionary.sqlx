@@ -1,0 +1,11 @@
+config {
+  type: "table",
+  schema: "kg_ontology_production",
+  name: "qudt_dictionary",
+  description: "Materialized dictionary mapping raw unit strings to QUDT URIs."
+}
+
+SELECT "mls" AS raw_unit, "qudt:MilliL" AS canonical_unit UNION ALL
+SELECT "ml" AS raw_unit, "qudt:MilliL" AS canonical_unit UNION ALL
+SELECT "grams" AS raw_unit, "qudt:Gram" AS canonical_unit UNION ALL
+SELECT "g" AS raw_unit, "qudt:Gram" AS canonical_unit
