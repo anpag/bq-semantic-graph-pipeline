@@ -16,7 +16,7 @@ from raw_extraction_agent import extract_triples_from_file, build_system_prompt
 @patch('raw_extraction_agent.fetch_ontology_context')
 def test_extract_triples_from_file(mock_fetch_context, mock_init_vertex, mock_generative_model, mock_bq_client, mock_open):
     # Mock the BigQuery context fetch
-    mock_fetch_context.return_value = "MOCKED ONTOLOGY CONTEXT"
+    mock_fetch_context.return_value = ("MOCKED ONTOLOGY CONTEXT", False)
     
     # Mock the Vertex AI model
     mock_model_instance = MagicMock()
