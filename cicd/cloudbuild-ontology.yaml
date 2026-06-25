@@ -1,0 +1,36 @@
+steps:
+  # 1. Build the Ontology Ingest Docker image (contains Java + Python)
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - '${_AR_REPO}/ontology-ingest:${COMMIT_SHA}'
+      - '-f'
+      - 'services/ontology-ingest/Dockerfile'
+      - 'services/ontology-ingest'
+
+  # 2. Push the image to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - '${_AR_REPO}/ontology-ingest:${COMMIT_SHA}'
+
+  # 3. Run Ingestion directly as a secure, containerized Build Step.
+  # The container inherits Cloud Build's native service account credentials to write to BigQuery.
+  - name: '${_AR_REPO}/ontology-ingest:${COMMIT_SHA}'
+    args:
+      - '--owl'
+      - 'ontologies/src/application/app_demo.ttl'
+      - '--project'
+      - '$PROJECT_ID' # Cloud Build built-in substitution
+      - '--dataset'
+      - '${_STAGING_DATASET}'
+      - '--version-info'
+      - '${COMMIT_SHA}' # Inject the Git commit SHA for governance auditing
+
+substitutions:
+  _AR_REPO: 'us-central1-docker.pkg.dev/semantic-graph-demo/app-repo'
+  _STAGING_DATASET: 'kg_staging'
+
+options:
+  logging: CLOUD_LOGGING_ONLY

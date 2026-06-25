@@ -1,0 +1,35 @@
+config {
+  type: "view",
+  schema: dataform.projectConfig.vars.staging_dataset,
+  name: "parsed_extractions",
+  description: "Parses raw JSON extractions from landing table into strongly typed structures, mapping agent fields to Dataform schema."
+}
+
+SELECT
+  source_file AS file_id,
+  1 AS page_num, -- The Python agent currently processes the document as a single unit (page 1)
+  ARRAY(
+    SELECT AS STRUCT
+      JSON_VALUE(node, '$.entity_name') AS node_name,
+      JSON_VALUE(node, '$.ontology_class') AS ontology_class,
+      -- Keep properties as a JSON string for dynamic properties downstream
+      TO_JSON_STRING(node.raw_properties) AS properties
+    FROM UNNEST(JSON_EXTRACT_ARRAY(extracted_nodes)) AS node
+  ) AS extracted_nodes,
+  ARRAY(
+    SELECT AS STRUCT
+      JSON_VALUE(edge, '$.source_entity') AS source_node_name,
+      JSON_VALUE(edge, '$.target_entity') AS target_node_name,
+      JSON_VALUE(edge, '$.relationship_type') AS ontological_relationship,
+      JSON_VALUE(edge, '$.evidence') AS evidence_insight,
+      1.0 AS confidence_score -- Default confidence if not provided by agent
+    FROM UNNEST(JSON_EXTRACT_ARRAY(extracted_edges)) AS edge
+  ) AS extracted_edges,
+  ARRAY(
+    SELECT AS STRUCT
+      JSON_VALUE(insight, '$.insight') AS insight_description,
+      JSON_VALUE(insight, '$.category') AS inferred_category
+    FROM UNNEST(JSON_EXTRACT_ARRAY(unbound_knowledge)) AS insight
+  ) AS unbound_insights
+FROM
+  ${ref("raw_extractions_landing")}

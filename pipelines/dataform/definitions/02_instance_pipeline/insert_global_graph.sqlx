@@ -1,0 +1,459 @@
+config {
+  type: "operations",
+  hasOutput: true,
+  name: "insert_global_graph",
+  description: "Merge, validate, and consolidate generic extracted nodes and edges from parsed extractions.",
+  dependencies: [
+    "parsed_extractions",
+    "canonicalized_nodes",
+    "global_nodes",
+    "global_edges",
+    "unbound_insights",
+    "embedding_model",
+    "node_classes",
+    "app_ontology_graph",
+    "dlq_semantic_failures",
+    "dlq_invalid_topology",
+    "onto_data_properties"
+  ]
+}
+
+-- 1. Register JavaScript UDFs for Property Parsing and Golden Record Consolidation
+
+-- 1. Register JavaScript UDFs for Property Parsing and Golden Record Consolidation
+
+-- Reconstructs an array of key-value pairs back to a clean, typed JSON string
+CREATE OR REPLACE TEMP FUNCTION kv_to_json(kv_array ARRAY<STRUCT<key STRING, value STRING>>)
+RETURNS STRING
+LANGUAGE js AS """
+  if (!kv_array) return '{}';
+  const obj = {};
+  for (const item of kv_array) {
+    if (item.key && item.value !== null && item.value !== undefined) {
+      try {
+        const valStr = item.value.trim();
+        if ((valStr.startsWith('{') && valStr.endsWith('}')) || (valStr.startsWith('[') && valStr.endsWith(']'))) {
+          obj[item.key] = JSON.parse(item.value);
+        } else {
+          const num = Number(item.value);
+          if (valStr !== '' && !isNaN(num)) {
+            obj[item.key] = num;
+          } else {
+            obj[item.key] = item.value;
+          }
+        }
+      } catch (e) {
+        obj[item.key] = item.value;
+      }
+    }
+  }
+  return JSON.stringify(obj);
+""";
+
+TRUNCATE TABLE ${ref("global_nodes")};
+TRUNCATE TABLE ${ref("global_edges")};
+TRUNCATE TABLE ${ref("unbound_insights")};
+
+-- 2. CTE Pipeline for Node Validation, Rollup, and Golden Record Consolidation
+
+WITH raw_nodes AS (
+  SELECT DISTINCT
+    file_id,
+    page_num,
+    node.node_name AS raw_entity_name,
+    node.ontology_class,
+    node.properties
+  FROM ${ref("parsed_extractions")},
+  UNNEST(extracted_nodes) AS node
+  WHERE node.node_name IS NOT NULL
+),
+
+parsed_properties AS (
+  SELECT
+    rn.file_id,
+    rn.page_num,
+    rn.raw_entity_name,
+    rn.ontology_class,
+    rn.properties AS raw_properties_string,
+    SAFE.PARSE_JSON(rn.properties) AS json_properties
+  FROM raw_nodes rn
+),
+
+unnested_properties AS (
+  SELECT
+    p.file_id,
+    p.page_num,
+    p.raw_entity_name,
+    p.ontology_class,
+    p.raw_properties_string,
+    key,
+    COALESCE(
+      JSON_VALUE(p.json_properties, CONCAT('$.', key, '.value')),
+      JSON_VALUE(p.json_properties, CONCAT('$.', key))
+    ) AS value
+  FROM parsed_properties p
+  LEFT JOIN UNNEST(JSON_KEYS(p.json_properties)) AS key
+),
+
+-- Validate properties against onto_data_properties (Relational SHACL)
+property_validation AS (
+  SELECT
+    up.file_id,
+    up.page_num,
+    up.raw_entity_name,
+    up.ontology_class,
+    up.raw_properties_string,
+    up.key,
+    up.value,
+    schema.expected_type,
+    CASE
+      WHEN up.key IS NULL THEN TRUE
+      WHEN schema.property_name IS NULL THEN FALSE
+      WHEN LOWER(schema.expected_type) IN ('float', 'integer', 'double', 'decimal', 'int', 'long', 'nonnegativeinteger') 
+           AND SAFE_CAST(up.value AS FLOAT64) IS NULL AND up.value IS NOT NULL AND up.value != '' THEN FALSE
+      WHEN LOWER(schema.expected_type) IN ('boolean', 'bool')
+           AND SAFE_CAST(up.value AS BOOL) IS NULL AND up.value IS NOT NULL AND up.value != '' THEN FALSE
+      ELSE TRUE
+    END AS is_valid_property,
+    CASE
+      WHEN up.key IS NULL THEN NULL
+      WHEN schema.property_name IS NULL THEN CONCAT('Disallowed property: ', up.key)
+      WHEN LOWER(schema.expected_type) IN ('float', 'integer', 'double', 'decimal', 'int', 'long', 'nonnegativeinteger') 
+           AND SAFE_CAST(up.value AS FLOAT64) IS NULL AND up.value IS NOT NULL AND up.value != '' THEN CONCAT('Type mismatch: cannot cast ', up.key, ' value "', up.value, '" to ', schema.expected_type)
+      WHEN LOWER(schema.expected_type) IN ('boolean', 'bool')
+           AND SAFE_CAST(up.value AS BOOL) IS NULL AND up.value IS NOT NULL AND up.value != '' THEN CONCAT('Type mismatch: cannot cast ', up.key, ' value "', up.value, '" to ', schema.expected_type)
+      ELSE NULL
+    END AS error_message
+  FROM unnested_properties up
+  LEFT JOIN ${ref("onto_data_properties")} schema
+    ON TRIM(up.ontology_class) = schema.domain_class
+   AND TRIM(up.key) = schema.property_name
+),
+
+node_validation AS (
+  SELECT
+    pv.file_id,
+    pv.page_num,
+    pv.raw_entity_name,
+    pv.ontology_class,
+    pv.raw_properties_string,
+    (dict.class_name IS NOT NULL) AS is_valid_class,
+    LOGICAL_AND(pv.is_valid_property) AS is_valid_properties,
+    ARRAY_AGG(
+      STRUCT(pv.key, pv.value, pv.error_message) 
+      IGNORE NULLS
+    ) AS property_errors
+  FROM property_validation pv
+  LEFT JOIN ${ref("node_classes")} dict
+    ON TRIM(pv.ontology_class) = dict.class_name
+  GROUP BY 1, 2, 3, 4, 5, is_valid_class
+),
+
+-- Extract validated nodes and canonicalize (SKOS/QUDT)
+validated_nodes AS (
+  SELECT 
+    u.file_id,
+    u.page_num,
+    u.canonical_name AS name,
+    u.ontology_class,
+    TO_JSON_STRING(STRUCT(u.raw_value AS value, COALESCE(u.canonical_unit, u.raw_unit) AS unit)) AS properties
+  FROM ${ref("canonicalized_nodes")} u
+  INNER JOIN (
+    SELECT file_id, page_num, raw_entity_name, ontology_class
+    FROM node_validation
+    WHERE is_valid_class AND is_valid_properties -- Strict Mode Gate
+  ) val
+    ON u.file_id = val.file_id
+   AND u.page_num = val.page_num
+   AND TRIM(u.raw_entity_name) = TRIM(val.raw_entity_name)
+   AND TRIM(u.ontology_class) = TRIM(val.ontology_class)
+),
+
+-- Rollup instances
+node_instances AS (
+  SELECT 
+    TO_HEX(MD5(UPPER(TRIM(name)))) AS node_id,
+    name,
+    ontology_class,
+    ARRAY_AGG(STRUCT(file_id, page_num, properties)) AS instances
+  FROM validated_nodes
+  GROUP BY node_id, name, ontology_class
+),
+
+-- Flatten properties and join with document timestamps for conflict resolution
+instance_properties AS (
+  SELECT
+    n.node_id,
+    inst.file_id,
+    inst.page_num,
+    dmr.created_date AS doc_timestamp,
+    kv.key,
+    kv.value
+  FROM node_instances n
+  CROSS JOIN UNNEST(n.instances) AS inst
+  LEFT JOIN ${ref("document_master_record")} dmr
+    ON inst.file_id = dmr.file_id
+  CROSS JOIN UNNEST(extract_json_kv(inst.properties)) AS kv
+),
+
+-- Resolve conflicts: average numeric values, take latest for text
+resolved_properties AS (
+  SELECT
+    node_id,
+    key,
+    CASE 
+      WHEN COUNTIF(SAFE_CAST(value AS FLOAT64) IS NULL AND value IS NOT NULL) = 0 AND COUNTIF(value IS NOT NULL) > 0
+      -- Numeric property: take average
+      THEN CAST(AVG(SAFE_CAST(value AS FLOAT64)) AS STRING)
+      -- Textual property: latest document overrides older
+      ELSE 
+        ARRAY_AGG(
+          value 
+          ORDER BY COALESCE(doc_timestamp, TIMESTAMP('1970-01-01 00:00:00 UTC')) DESC, file_id DESC
+          LIMIT 1
+        )[OFFSET(0)]
+    END AS resolved_value
+  FROM instance_properties
+  GROUP BY node_id, key
+),
+
+-- Construct golden properties JSON
+golden_records AS (
+  SELECT
+    node_id,
+    kv_to_json(ARRAY_AGG(STRUCT(key, resolved_value))) AS golden_properties
+  FROM resolved_properties
+  GROUP BY node_id
+),
+
+-- Combine instances with golden properties
+node_instances_with_golden AS (
+  SELECT
+    n.node_id,
+    n.name,
+    n.ontology_class,
+    n.instances,
+    g.golden_properties
+  FROM node_instances n
+  LEFT JOIN golden_records g ON n.node_id = g.node_id
+),
+
+-- Split chemical nodes (no embeddings)
+chemical_nodes AS (
+  SELECT 
+    node_id,
+    name,
+    ontology_class,
+    instances,
+    golden_properties,
+    CAST(NULL AS ARRAY<FLOAT64>) AS embedding
+  FROM node_instances_with_golden
+  WHERE ontology_class IN ('Solvent', 'ChemicalCompound', 'Polymer', 'Monomer')
+),
+
+-- Split concept nodes (to be embedded)
+non_chemical_nodes_to_embed AS (
+  SELECT 
+    node_id,
+    name,
+    ontology_class,
+    instances,
+    golden_properties,
+    FORMAT('%s (%s)', name, ontology_class) AS content
+  FROM node_instances_with_golden
+  WHERE ontology_class NOT IN ('Solvent', 'ChemicalCompound', 'Polymer', 'Monomer')
+),
+
+embedded_non_chemical_nodes AS (
+  SELECT
+    n.node_id,
+    n.name,
+    n.ontology_class,
+    n.instances,
+    n.golden_properties,
+    n.ml_generate_embedding_result AS embedding
+  FROM ML.GENERATE_EMBEDDING(
+    MODEL ${ref("embedding_model")},
+    (SELECT * FROM non_chemical_nodes_to_embed),
+    STRUCT(TRUE AS flatten_json_output)
+  ) n
+)
+
+-- 3. Insert Valid Nodes into global_nodes
+INSERT INTO ${ref("global_nodes")}
+(node_id, name, ontology_class, instances, golden_properties, embedding)
+SELECT node_id, name, ontology_class, instances, golden_properties, embedding FROM chemical_nodes
+UNION ALL
+SELECT node_id, name, ontology_class, instances, golden_properties, embedding FROM embedded_non_chemical_nodes;
+
+
+-- 4. Insert Invalid Nodes into Semantic DLQ (Class & Attribute Failures)
+INSERT INTO ${ref("dlq_semantic_failures")}
+(file_id, page_num, node_name, hallucinated_class, properties, error_message)
+-- Class failures
+SELECT
+  file_id,
+  page_num,
+  raw_entity_name AS node_name,
+  ontology_class AS hallucinated_class,
+  raw_properties_string AS properties,
+  CONCAT('Hallucinated ontology class: ', ontology_class) AS error_message
+FROM node_validation
+WHERE NOT is_valid_class
+
+UNION ALL
+
+-- Property/Attribute failures
+SELECT
+  file_id,
+  page_num,
+  raw_entity_name AS node_name,
+  ontology_class AS hallucinated_class,
+  raw_properties_string AS properties,
+  err.error_message
+FROM node_validation,
+UNNEST(property_errors) AS err
+WHERE is_valid_class AND NOT is_valid_properties;
+
+
+-- 5. Edge Topology SHACL Validation (Cascade-Blocked by Valid Nodes)
+WITH edges_with_classes AS (
+  SELECT DISTINCT
+    GENERATE_UUID() AS edge_id,
+    TO_HEX(MD5(UPPER(TRIM(edge.source_node_name)))) AS source_node_id,
+    TO_HEX(MD5(UPPER(TRIM(edge.target_node_name)))) AS target_node_id,
+    TRIM(edge.ontological_relationship) AS relationship_type,
+    edge.evidence_insight,
+    edge.confidence_score,
+    TRIM(edge.source_node_name) AS source_node_name,
+    TRIM(edge.target_node_name) AS target_node_name,
+    TRIM(sn.ontology_class) AS source_class,
+    TRIM(tn.ontology_class) AS target_class,
+    p.file_id,
+    p.page_num
+  FROM ${ref("parsed_extractions")} p,
+  UNNEST(extracted_edges) AS edge
+  -- Join with global_nodes (only valid, non-blocked nodes are preserved)
+  JOIN ${ref("global_nodes")} sn 
+    ON sn.name = TRIM(edge.source_node_name)
+  JOIN ${ref("global_nodes")} tn 
+    ON tn.name = TRIM(edge.target_node_name)
+  WHERE edge.source_node_name IS NOT NULL AND edge.target_node_name IS NOT NULL
+),
+valid_edges AS (
+  SELECT e.*
+  FROM edges_with_classes e
+  WHERE EXISTS (
+    SELECT 1 FROM GRAPH_TABLE(${ref("app_ontology_graph")}
+      MATCH (sc:OntoClass) -[r:Relationship]-> (tc:OntoClass)
+      WHERE sc.class_name = e.source_class
+        AND tc.class_name = e.target_class
+        AND r.relationship_type = e.relationship_type
+    )
+  )
+),
+edges_to_embed AS (
+  SELECT * FROM valid_edges WHERE evidence_insight IS NOT NULL AND TRIM(evidence_insight) != ''
+),
+edges_not_to_embed AS (
+  SELECT *, CAST(NULL AS ARRAY<FLOAT64>) AS embedding FROM valid_edges WHERE evidence_insight IS NULL OR TRIM(evidence_insight) = ''
+),
+embedded_edges AS (
+  SELECT
+    e.edge_id,
+    e.source_node_id,
+    e.target_node_id,
+    e.relationship_type,
+    e.evidence_insight,
+    e.confidence_score,
+    e.ml_generate_embedding_result AS embedding
+  FROM ML.GENERATE_EMBEDDING(
+    MODEL ${ref("embedding_model")},
+    (SELECT *, evidence_insight AS content FROM edges_to_embed),
+    STRUCT(TRUE AS flatten_json_output)
+  ) e
+)
+INSERT INTO ${ref("global_edges")}
+(edge_id, source_node_id, target_node_id, relationship_type, evidence_insight, confidence_score, embedding)
+SELECT edge_id, source_node_id, target_node_id, relationship_type, evidence_insight, confidence_score, embedding FROM edges_not_to_embed
+UNION ALL
+SELECT edge_id, source_node_id, target_node_id, relationship_type, evidence_insight, confidence_score, embedding FROM embedded_edges;
+
+
+-- 6. Insert Invalid Edges into Topology DLQ
+INSERT INTO ${ref("dlq_invalid_topology")}
+(file_id, page_num, source_node_name, source_class, target_node_name, target_class, relationship_type)
+WITH edges_with_classes AS (
+  SELECT DISTINCT
+    TRIM(edge.source_node_name) AS source_node_name,
+    TRIM(edge.target_node_name) AS target_node_name,
+    TRIM(edge.ontological_relationship) AS relationship_type,
+    TRIM(sn.ontology_class) AS source_class,
+    TRIM(tn.ontology_class) AS target_class,
+    p.file_id,
+    p.page_num
+  FROM ${ref("parsed_extractions")} p,
+  UNNEST(extracted_edges) AS edge
+  JOIN (
+    SELECT file_id, page_num, node.node_name, node.ontology_class 
+    FROM ${ref("parsed_extractions")}, UNNEST(extracted_nodes) AS node
+  ) sn ON sn.file_id = p.file_id AND sn.page_num = p.page_num AND TRIM(sn.node_name) = TRIM(edge.source_node_name)
+  JOIN (
+    SELECT file_id, page_num, node.node_name, node.ontology_class 
+    FROM ${ref("parsed_extractions")}, UNNEST(extracted_nodes) AS node
+  ) tn ON tn.file_id = p.file_id AND tn.page_num = p.page_num AND TRIM(tn.node_name) = TRIM(edge.target_node_name)
+  WHERE edge.source_node_name IS NOT NULL AND edge.target_node_name IS NOT NULL
+)
+SELECT
+  e.file_id, e.page_num, e.source_node_name, e.source_class, e.target_node_name, e.target_class, e.relationship_type
+FROM edges_with_classes e
+WHERE NOT EXISTS (
+  SELECT 1 FROM GRAPH_TABLE(${ref("app_ontology_graph")}
+    MATCH (sc:OntoClass) -[r:Relationship]-> (tc:OntoClass)
+    WHERE sc.class_name = e.source_class
+      AND tc.class_name = e.target_class
+      AND r.relationship_type = e.relationship_type
+  )
+);
+
+
+-- 7. Insert Unbound Insights with Embeddings
+WITH raw_insights AS (
+  SELECT DISTINCT
+    p.file_id,
+    p.page_num,
+    ins.insight_description AS insight,
+    ins.inferred_category AS category
+  FROM ${ref("parsed_extractions")} p,
+  UNNEST(unbound_insights) AS ins
+  WHERE ins.insight_description IS NOT NULL AND TRIM(ins.insight_description) != ''
+),
+insights_to_embed AS (
+  SELECT
+    GENERATE_UUID() AS insight_id,
+    file_id,
+    page_num,
+    insight,
+    category,
+    insight AS content
+  FROM raw_insights
+),
+embedded_insights AS (
+  SELECT
+    i.insight_id,
+    i.file_id,
+    i.page_num,
+    i.insight,
+    i.category,
+    i.ml_generate_embedding_result AS embedding
+  FROM ML.GENERATE_EMBEDDING(
+    MODEL ${ref("embedding_model")},
+    (SELECT * FROM insights_to_embed),
+    STRUCT(TRUE AS flatten_json_output)
+  ) i
+)
+INSERT INTO ${ref("unbound_insights")}
+(insight_id, file_id, page_num, insight, category, embedding)
+SELECT
+  insight_id, file_id, page_num, insight, category, embedding
+FROM embedded_insights;

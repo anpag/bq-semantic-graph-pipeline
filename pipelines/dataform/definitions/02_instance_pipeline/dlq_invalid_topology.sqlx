@@ -1,0 +1,17 @@
+config {
+  type: "operations",
+  hasOutput: true,
+  name: "dlq_invalid_topology",
+  description: "Dead-Letter Queue for Edge Topology SHACL failures. Catches edges where the source/target classes violate domain/range constraints."
+}
+
+CREATE TABLE IF NOT EXISTS ${self()} (
+  file_id STRING,
+  page_num INT64,
+  source_node_name STRING,
+  source_class STRING,
+  target_node_name STRING,
+  target_class STRING,
+  relationship_type STRING,
+  error_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP()
+);

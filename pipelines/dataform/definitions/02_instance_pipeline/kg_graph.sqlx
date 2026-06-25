@@ -1,0 +1,30 @@
+config {
+  type: "operations",
+  hasOutput: true,
+  name: "kg_graph",
+  description: "The primary KG Knowledge Hub Property Graph (Unified Schema).",
+  dependencies: [
+    "document_master_record",
+    "global_nodes",
+    "global_edges",
+    "node_aliases",
+    "edge_close_match"
+  ]
+}
+
+CREATE OR REPLACE PROPERTY GRAPH ${self()}
+  NODE TABLES (
+    ${ref("global_nodes")} AS global_nodes KEY(node_id),
+    ${ref("document_master_record")} AS document_master_record KEY(file_id),
+    ${ref("node_aliases")} AS node_aliases KEY(node_id) LABEL Alias
+  )
+  EDGE TABLES (
+    ${ref("global_edges")} AS global_edges KEY(edge_id)
+      SOURCE KEY(source_node_id) REFERENCES global_nodes(node_id)
+      DESTINATION KEY(target_node_id) REFERENCES global_nodes(node_id)
+      LABEL CONNECTS PROPERTIES (relationship_type, evidence_insight, confidence_score),
+    ${ref("edge_close_match")} AS edge_close_match KEY(edge_id)
+      SOURCE KEY(source_node_id) REFERENCES node_aliases(node_id)
+      DESTINATION KEY(target_node_id) REFERENCES global_nodes(node_id)
+      LABEL closeMatch PROPERTIES (relationship_type)
+  );

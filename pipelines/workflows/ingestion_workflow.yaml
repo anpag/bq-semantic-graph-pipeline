@@ -1,0 +1,148 @@
+# Ingestion and Refinement Orchestration Workflow
+main:
+  params: [event]
+  steps:
+    - init:
+        assign:
+          - project_id: ${sys.get_env("GOOGLE_CLOUD_PROJECT_NUMBER")}
+          - project_name: ${sys.get_env("GOOGLE_CLOUD_PROJECT_ID")}
+          - location: ${sys.get_env("GOOGLE_CLOUD_LOCATION")}
+          - extractor_url: ${sys.get_env("EXTRACTOR_URL")}
+          - archive_bucket: ${sys.get_env("ARCHIVE_BUCKET")}
+          - dataform_repository: ${sys.get_env("DATAFORM_REPOSITORY")}
+          
+          # Extract GCS event details
+          - bucket: ${event.data.bucket}
+          - name: ${event.data.name}
+          - gcs_uri: ${"gs://" + bucket + "/" + name}
+
+    - log_start:
+        call: sys.log
+        args:
+          text: ${"Starting ingestion workflow for file " + gcs_uri}
+          severity: INFO
+
+    # Step 1: Call Extractor Service (Cloud Run)
+    - call_extractor:
+        try:
+          call: http.post
+          args:
+            url: ${extractor_url + "/extract"}
+            auth:
+              type: OIDC
+            body:
+              gcs_uri: ${gcs_uri}
+              project_id: ${project_name}
+              staging_dataset: "kg_staging"
+          result: extractor_response
+        retry:
+          predicate: ${http.default_retry_predicate}
+          max_retries: 3
+          backoff:
+            initial_delay: 2
+            max_delay: 60
+            multiplier: 2
+
+    - check_extractor_status:
+        switch:
+          - condition: ${extractor_response.body.status != "success"}
+            raise: ${"Extraction failed: " + extractor_response.body.message}
+        next: log_extraction_success
+
+    - log_extraction_success:
+        call: sys.log
+        args:
+          text: "Extraction completed successfully. Triggering Dataform compilation..."
+          severity: INFO
+
+    # Step 2: Trigger Dataform Compilation
+    - trigger_dataform_compile:
+        call: http.post
+        args:
+          url: ${"https://dataform.googleapis.com/v1beta1/projects/" + project_name + "/locations/" + location + "/repositories/" + dataform_repository + "/compilationResults"}
+          auth:
+            type: OAuth2
+          body:
+            gitCommitish: "main"
+        result: compile_response
+
+    - log_compile_success:
+        call: sys.log
+        args:
+          text: ${"Dataform compilation created: " + compile_response.body.name}
+          severity: INFO
+
+    # Step 3: Trigger Dataform Workflow Invocation (Execution)
+    - trigger_dataform_run:
+        call: http.post
+        args:
+          url: ${"https://dataform.googleapis.com/v1beta1/projects/" + project_name + "/locations/" + location + "/repositories/" + dataform_repository + "/workflowInvocations"}
+          auth:
+            type: OAuth2
+          body:
+            compilationResult: ${compile_response.body.name}
+        result: invocation_response
+
+    - assign_invocation_name:
+        assign:
+          - invocation_name: ${invocation_response.body.name}
+
+    - log_invocation_start:
+        call: sys.log
+        args:
+          text: ${"Dataform workflow invocation started: " + invocation_name + ". Polling for completion..."}
+          severity: INFO
+
+    # Step 4: Poll Dataform Invocation Status (Wait for asynchronous DAG completion)
+    - poll_dataform_run:
+        call: http.get
+        args:
+          url: ${"https://dataform.googleapis.com/" + invocation_name}
+          auth:
+            type: OAuth2
+        result: poll_response
+
+    - check_dataform_status:
+        switch:
+          - condition: ${poll_response.body.state == "SUCCEEDED"}
+            next: log_dataform_success
+          - condition: ${poll_response.body.state == "FAILED" or poll_response.body.state == "CANCELLED"}
+            raise: ${"Dataform execution failed with state: " + poll_response.body.state}
+        next: wait_before_poll
+
+    - wait_before_poll:
+        call: sys.sleep
+        args:
+          seconds: 10
+        next: poll_dataform_run
+
+    - log_dataform_success:
+        call: sys.log
+        args:
+          text: "Dataform execution completed successfully. Archiving source file..."
+          severity: INFO
+
+    # Step 5: Archive Source File (Copy to archive, delete from landing)
+    - archive_copy:
+        call: googleapis.storage.v1.objects.copy
+        args:
+          sourceBucket: ${bucket}
+          sourceObject: ${name}
+          destinationBucket: ${archive_bucket}
+          destinationObject: ${name}
+          body: {}
+
+    - archive_delete:
+        call: googleapis.storage.v1.objects.delete
+        args:
+          bucket: ${bucket}
+          object: ${name}
+
+    - log_workflow_complete:
+        call: sys.log
+        args:
+          text: ${"Workflow completed successfully. File archived: gs://" + archive_bucket + "/" + name}
+          severity: INFO
+
+    - return_success:
+        return: "success"

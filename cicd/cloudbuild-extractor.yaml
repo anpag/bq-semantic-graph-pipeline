@@ -1,0 +1,41 @@
+steps:
+  # 1. Build the Extractor Service Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - '${_AR_REPO}/extractor-service:${COMMIT_SHA}'
+      - '-f'
+      - 'services/extractor/Dockerfile'
+      - 'services/extractor'
+
+  # 2. Push the image to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - '${_AR_REPO}/extractor-service:${COMMIT_SHA}'
+
+  # 3. Deploy/Update the Cloud Run Service
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'extractor-service'
+      - '--image'
+      - '${_AR_REPO}/extractor-service:${COMMIT_SHA}'
+      - '--region'
+      - '${_REGION}'
+      - '--service-account'
+      - '${_SERVICE_ACCOUNT}'
+      - '--ingress'
+      - 'internal' # Maintain the strict internal-only security boundary
+      - '--no-allow-unauthenticated'
+
+substitutions:
+  _AR_REPO: 'us-central1-docker.pkg.dev/semantic-graph-demo/app-repo'
+  _REGION: 'us-central1'
+  _SERVICE_ACCOUNT: 'extractor-sa@semantic-graph-demo.iam.gserviceaccount.com'
+
+options:
+  logging: CLOUD_LOGGING_ONLY

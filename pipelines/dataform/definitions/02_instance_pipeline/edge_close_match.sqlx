@@ -1,0 +1,23 @@
+config {
+  type: "table",
+  name: "edge_close_match",
+  description: "Edges connecting alias nodes to their corresponding canonical nodes.",
+  dependencies: ["document_master_record"]
+}
+
+WITH unnested_entities AS (
+  SELECT DISTINCT
+    TRIM(JSON_EXTRACT_SCALAR(entity, '$.canonical_name')) AS canonical_name,
+    TRIM(synonym) AS alias_name
+  FROM ${ref("document_master_record")},
+  UNNEST(JSON_EXTRACT_ARRAY(pipeline_lineage_tags, '$.entity_dictionary')) AS entity,
+  UNNEST(JSON_EXTRACT_STRING_ARRAY(entity, '$.synonyms_used_in_text')) AS synonym
+  WHERE synonym IS NOT NULL AND TRIM(synonym) != ''
+    AND JSON_EXTRACT_SCALAR(entity, '$.canonical_name') IS NOT NULL
+)
+SELECT 
+  GENERATE_UUID() AS edge_id,
+  TO_HEX(MD5(UPPER(alias_name))) AS source_node_id,
+  TO_HEX(MD5(UPPER(canonical_name))) AS target_node_id,
+  'closeMatch' AS relationship_type
+FROM unnested_entities

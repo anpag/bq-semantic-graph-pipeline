@@ -1,5 +1,10 @@
 # BigQuery Semantic Graph Pipeline
 
+> [!IMPORTANT]
+> **Co-Authorship & Disclaimer**: This repository is a co-authored project between **antoniopaulino** and **Gemini** (developed using the *Gemini CLI* in the early phases, and subsequently productionized using the *Agy CLI*).
+> 
+> This is **not** an official Google product. It is a reference architecture and demonstration project designed to showcase how Google Cloud native services, combined with Vertex AI Gemini models, can be leveraged to build a highly scalable, serverless, and event-driven metadata extraction and semantic knowledge graph pipeline.
+
 A reference architecture for automated ingestion and semantic extraction of unstructured scientific documents into a native BigQuery Property Graph, utilizing BigQuery ML (`AI.GENERATE`) and relational SHACL (Shapes Constraint Language) enforcement.
 
 ## System Architecture Overview

@@ -1,0 +1,16 @@
+config {
+  type: "operations",
+  hasOutput: true,
+  name: "dlq_semantic_failures",
+  description: "Dead-Letter Queue for Semantic SHACL failures. Catches nodes where the LLM hallucinated a class not found in onto_classes, or where property validation failed."
+}
+
+CREATE TABLE IF NOT EXISTS ${self()} (
+  file_id STRING,
+  page_num INT64,
+  node_name STRING,
+  hallucinated_class STRING,
+  properties STRING,
+  error_message STRING,
+  error_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP()
+);
