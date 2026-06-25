@@ -1,0 +1,9 @@
+config {
+  type: "table",
+  name: "skos_dictionary",
+  description: "Materialized dictionary mapping synonyms (altLabel) to canonical names (prefLabel)."
+}
+
+SELECT "oxolane" AS alt_label, "Tetrahydrofuran" AS pref_label UNION ALL
+SELECT "THF" AS alt_label, "Tetrahydrofuran" AS pref_label UNION ALL
+SELECT "caustic soda" AS alt_label, "Sodium Hydroxide" AS pref_label

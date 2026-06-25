@@ -1,0 +1,53 @@
+config {
+  type: "view",
+  dependencies: ["global_edges", "global_nodes", "embedding_model"],
+  description: "Hybrid search view combining vector search on edge insights with relational filters on node golden properties."
+}
+
+SELECT
+  -- Edge details
+  search_results.base.edge_id,
+  search_results.base.relationship_type,
+  search_results.base.evidence_insight,
+  search_results.base.confidence_score,
+  search_results.distance,
+  
+  -- Source Node details
+  source_node.name AS source_node_name,
+  source_node.ontology_class AS source_node_class,
+  source_node.golden_properties AS source_node_properties,
+  
+  -- Target Node details
+  target_node.name AS target_node_name,
+  target_node.ontology_class AS target_node_class,
+  target_node.golden_properties AS target_node_properties
+FROM
+  ML.VECTOR_SEARCH(
+    TABLE ${ref("global_edges")},
+    'embedding',
+    (
+      SELECT ml_generate_embedding_result AS embedding
+      FROM ML.GENERATE_EMBEDDING(
+        MODEL ${ref("embedding_model")},
+        (SELECT 'optimal reaction temperature' AS content),
+        STRUCT(TRUE AS flatten_json_output)
+      )
+    ),
+    top_k => 10
+  ) AS search_results
+JOIN ${ref("global_nodes")} AS source_node
+  ON search_results.base.source_node_id = source_node.node_id
+JOIN ${ref("global_nodes")} AS target_node
+  ON search_results.base.target_node_id = target_node.node_id
+WHERE
+  -- Apply relational JSON filters on golden_properties
+  -- We use SAFE_CAST to avoid query failures if the property is missing or not a number
+  (
+    JSON_VALUE(source_node.golden_properties, '$.molecular_weight') IS NULL OR
+    SAFE_CAST(JSON_VALUE(source_node.golden_properties, '$.molecular_weight') AS FLOAT64) > 100.0
+  )
+  AND (
+    JSON_VALUE(target_node.golden_properties, '$.state') IS NULL OR
+    JSON_VALUE(target_node.golden_properties, '$.state') = 'liquid' OR
+    SAFE_CAST(JSON_VALUE(target_node.golden_properties, '$.temperature') AS FLOAT64) < 250.0
+  )

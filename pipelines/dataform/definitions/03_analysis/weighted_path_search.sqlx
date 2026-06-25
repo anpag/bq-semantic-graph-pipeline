@@ -1,0 +1,20 @@
+config {
+  type: "operations",
+  dependencies: ["kg_graph"],
+  description: "Sample GQL query demonstrating trust-bounded path finding over the knowledge graph."
+}
+
+-- Traverse the graph from any node to another via CONNECTS edge, filtering for high confidence relationships
+SELECT * FROM GRAPH_TABLE(
+  ${ref("kg_graph")}
+  MATCH (a:global_nodes) -[e:CONNECTS]-> (b:global_nodes)
+  WHERE e.confidence_score > 0.8
+  COLUMNS (
+    a.name AS source_node_name,
+    a.ontology_class AS source_node_class,
+    e.relationship_type AS relationship,
+    e.confidence_score AS confidence,
+    b.name AS target_node_name,
+    b.ontology_class AS target_node_class
+  )
+);

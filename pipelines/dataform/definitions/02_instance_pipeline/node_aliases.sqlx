@@ -1,0 +1,20 @@
+config {
+  type: "table",
+  name: "node_aliases",
+  description: "Alias nodes representing synonyms used in the text, to be linked to canonical nodes.",
+  dependencies: ["document_master_record"]
+}
+
+WITH unnested_synonyms AS (
+  SELECT DISTINCT
+    TRIM(synonym) AS alias_name
+  FROM ${ref("document_master_record")},
+  UNNEST(JSON_EXTRACT_ARRAY(pipeline_lineage_tags, '$.entity_dictionary')) AS entity,
+  UNNEST(JSON_EXTRACT_STRING_ARRAY(entity, '$.synonyms_used_in_text')) AS synonym
+  WHERE synonym IS NOT NULL AND TRIM(synonym) != ''
+)
+SELECT 
+  TO_HEX(MD5(UPPER(alias_name))) AS node_id,
+  alias_name AS name,
+  'Alias' AS ontology_class
+FROM unnested_synonyms

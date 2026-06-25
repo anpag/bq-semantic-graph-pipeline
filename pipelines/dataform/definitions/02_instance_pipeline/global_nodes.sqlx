@@ -1,0 +1,15 @@
+config {
+  type: "operations",
+  hasOutput: true,
+  name: "global_nodes",
+  description: "Unified table for all graph nodes with nested provenance."
+}
+
+CREATE TABLE IF NOT EXISTS ${self()} (
+    node_id STRING NOT NULL,
+    name STRING,
+    ontology_class STRING,
+    instances ARRAY<STRUCT<file_id STRING, page_num INT64, properties STRING>>,
+    golden_properties STRING,
+    embedding ARRAY<FLOAT64>
+);

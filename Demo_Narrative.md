@@ -1,4 +1,4 @@
-# Google Cloud Semantic Knowledge Graph - Ultimate Demo Narrative & Script
+# Enterprise Semantic Knowledge Graph - Ultimate Demo Narrative & Script
 
 This document provides a highly detailed, step-by-step guide for presenting the Enterprise Semantic Knowledge Graph demo. It aligns perfectly with the approved storyline, detailing exactly what actions to take in the UI and the corresponding script to deliver.
 

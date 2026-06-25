@@ -1,4 +1,4 @@
-# Enterprise Enterprise Semantic Knowledge Graph — Google Cloud Platform Architecture
+# Enterprise Semantic Knowledge Graph — Cloud Platform Architecture
 
 This document describes the enterprise-grade architecture of the **Enterprise Enterprise (Enterprise Adhesive Technologies) Semantic Knowledge Graph Platform**. The system functions as a **Semantic Clean Room**, combining state-of-the-art Generative AI with structured BigQuery analytics and Dataform pipeline automation to achieve automated ontology generation, rigorous data canonicalization, and real-time knowledge graph serving.
 
@@ -33,7 +33,7 @@ graph TD
     UI <-->|Upload Stream / Pull / Commit| SRV
 
     %% GCP Processing Zone
-    subgraph GCP_Cloud ["☁️ Google Cloud Platform (semantic-graph-demo Project)"]
+    subgraph GCP_Cloud ["☁️ Cloud Platform (semantic-graph-demo Project)"]
         
         %% Vertex AI
         subgraph Vertex_Zone ["🧠 Cognitive & Reasoning Layer"]
@@ -263,4 +263,4 @@ This pipeline handles how experimental data (instances of nodes and edges) is ex
 
 The Enterprise Semantic Clean Room implements strict security isolation to protect the integrity of the production knowledge graph:
 *   **Staging vs. Production Dataset Isolation:** AI extraction agents never write directly to production tables. They deposit raw payload strings into isolated staging layers. Only the deterministic, code-reviewed Dataform pipeline (which compiles and executes under a service account) has write access to production datasets, preventing malicious or poorly-formatted AI outputs from corrupting active operational schemas.
-*   **Vertex AI Integration Identity:** Since the execution runs within a single Google Cloud project (`semantic-graph-demo`), the connection is governed securely using local IAM. The BigQuery Connection Service Account is granted the `roles/aiplatform.user` permission directly on the local project, allowing it to invoke Vertex AI Gemini models natively.
+*   **Vertex AI Integration Identity:** Since the execution runs within a single cloud project (`semantic-graph-demo`), the connection is governed securely using local IAM. The BigQuery Connection Service Account is granted the `roles/aiplatform.user` permission directly on the local project, allowing it to invoke Vertex AI Gemini models natively.

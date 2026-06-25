@@ -1,0 +1,13 @@
+dataformCoreVersion: 3.0.48
+defaultProject: semantic-graph-demo
+defaultLocation: US
+defaultDataset: kg_production
+defaultAssertionDataset: kg_production_assertions
+vars:
+  project_id: "semantic-graph-demo"
+  location: "us-central1"
+  connection_id: "semantic-graph-demo.us.kg_knowledge_hub_conn"
+  ontology_cache_id: "your-vertex-cache-id"
+  gcs_bucket: "semantic-graph-demo-landing"
+  bq_region: "us"
+  staging_dataset: "kg_staging"

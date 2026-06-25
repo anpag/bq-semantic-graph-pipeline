@@ -1,0 +1,7 @@
+config {
+  type: "declaration",
+  database: dataform.projectConfig.defaultProject,
+  schema: dataform.projectConfig.vars.staging_dataset,
+  name: "onto_data_properties",
+  description: "Staging table holding raw parsed ontology data properties, populated by the ontology ingestion script."
+}

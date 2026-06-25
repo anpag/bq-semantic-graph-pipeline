@@ -15,7 +15,7 @@ When dealing with pharmaceutical and Chemical Manufacturing and Control (CMC) re
 *   **Wild Structural Heterogeneity:** No two scientists write their reports in the same format. For instance, solubility experiments, chromatography charts (HPLC), or polymorph screens exhibit completely different layouts, naming styles, and parameters.
 *   **Semantic Synonym Ambiguity:** Shorthand names (e.g., `THF`), spelling variations, and chemical lot numbers (e.g., `Lot:Alpha-123`) are used interchangeably, threatening to fracture standard graph databases.
 
-Traditional approaches fail catastrophically under these conditions. The table below contrasts this native Google Cloud/BigQuery architecture against common industry alternatives, including pure Vector RAG, LLM-First Middleware Graph Builders (e.g., the Yahoo pattern), and External Graph Databases (e.g., Neo4j/TypeDB).
+Traditional approaches fail catastrophically under these conditions. The table below contrasts this native BigQuery-centric architecture against common industry alternatives, including pure Vector RAG, LLM-First Middleware Graph Builders (e.g., the Yahoo pattern), and External Graph Databases (e.g., Neo4j/TypeDB).
 
 | Architectural Dimension | Alternative A: Pure Vector RAG (Semantic Search) | Alternative B: LLM-First Graph & Middleware Validation | Alternative C: External Graph DBs (e.g., Neo4j / TypeDB) | This Architecture: Native BQ/Dataform + Relational SHACL |
 | :--- | :--- | :--- | :--- | :--- |
@@ -28,7 +28,7 @@ Traditional approaches fail catastrophically under these conditions. The table b
 
 ## 2. End-to-End Ingestion & Processing Flow
 
-The pipeline operates as a serverless, database-driven extraction and orchestration workflow entirely hosted within Google Cloud. By combining **BigQuery Object Tables**, **Dataform**, and **Gemini 2.5 Pro**, it bypasses the need for fragile external orchestration middleware.
+The pipeline operates as a serverless, database-driven extraction and orchestration workflow entirely hosted within the cloud. By combining **BigQuery Object Tables**, **Dataform**, and **Gemini 2.5 Pro**, it bypasses the need for fragile external orchestration middleware.
 
 ```mermaid
 flowchart TD
@@ -232,7 +232,7 @@ In early POCs, feeding entire multi-page documents to Gemini and asking for page
 *   **Our Solution:** The production pipeline physically splits multi-page PDFs in GCS into separate single-page documents prior to running `AI.GENERATE`. This ensures Gemini's attention is focused exclusively on the target page, guaranteeing 100% extraction coverage across large 100+ page laboratory logs.
 
 ### 4. The "Two-Graph" Separation (Data Graph vs. Metadata Graph) for Dynamic Inheritance
-One of the most powerful insights from our discussions with Google Graph engineers was the decoupling of the **Data Graph** from the **Ontology Metadata Graph**.
+One of the most powerful architectural insights was the decoupling of the **Data Graph** from the **Ontology Metadata Graph**.
 *   **The Learning:** Forcing the LLM or query engines to hardcode all subClassOf and relationship inheritance paths results in massive schema brittleness. By loading the OWL definitions into a parallel metadata graph in BigQuery, we can write ISO GQL queries with Quantified Path Patterns (e.g. `(source_class) (-[:SUBCLASS_OF]->){0, 5} (valid_domain)`) to resolve inheritance dynamically at query/validation time. The extraction logic remains simple and static, while the database dynamically resolves complex taxonomic rules.
 
 ### 5. Physical Ingestion Chunking vs. Virtual Sequence Loops (Performance & Cost Disparity)

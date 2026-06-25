@@ -1,0 +1,15 @@
+config {
+  type: "operations",
+  hasOutput: true,
+  name: "unbound_insights",
+  description: "Flat table for unbound insights with embeddings."
+}
+
+CREATE TABLE IF NOT EXISTS ${self()} (
+    insight_id STRING NOT NULL,
+    file_id STRING,
+    page_num INT64,
+    insight STRING,
+    category STRING,
+    embedding ARRAY<FLOAT64>
+);

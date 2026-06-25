@@ -1,0 +1,37 @@
+config {
+  type: "view",
+  schema: dataform.projectConfig.vars.staging_dataset,
+  name: "canonicalized_nodes",
+  description: "Nodes with deterministic SKOS and QUDT canonicalization applied.",
+  dependencies: ["parsed_extractions", "skos_dictionary", "qudt_dictionary"]
+}
+
+WITH unnested AS (
+  SELECT 
+    file_id, 
+    page_num,
+    node.node_name AS raw_entity_name,
+    node.ontology_class,
+    -- Extract properties for unit standardisation
+    JSON_VALUE(node.properties, '$.value') AS raw_value,
+    JSON_VALUE(node.properties, '$.raw_unit') AS raw_unit
+  FROM ${ref("parsed_extractions")}, UNNEST(extracted_nodes) AS node
+)
+SELECT 
+  u.file_id,
+  u.page_num,
+  u.raw_entity_name,
+  -- Deterministic SKOS Canonicalization:
+  -- If it's a known synonym (e.g. 'oxolane'), map to 'Tetrahydrofuran'. 
+  -- Otherwise, keep the raw name.
+  COALESCE(skos.pref_label, u.raw_entity_name) AS canonical_name,
+  u.ontology_class,
+  u.raw_value,
+  u.raw_unit,
+  -- Deterministic QUDT Canonicalization:
+  qudt.canonical_unit
+FROM unnested u
+LEFT JOIN ${ref("skos_dictionary")} skos 
+  ON LOWER(TRIM(u.raw_entity_name)) = LOWER(TRIM(skos.alt_label))
+LEFT JOIN ${ref("qudt_dictionary")} qudt 
+  ON LOWER(TRIM(u.raw_unit)) = LOWER(TRIM(qudt.raw_unit))
