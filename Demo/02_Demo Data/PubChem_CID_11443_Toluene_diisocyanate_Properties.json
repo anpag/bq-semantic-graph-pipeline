@@ -1,0 +1,13 @@
+{
+  "PropertyTable": {
+    "Properties": [
+      {
+        "CID": 11443,
+        "MolecularFormula": "C9H6N2O2",
+        "MolecularWeight": "174.16",
+        "ConnectivitySMILES": "CC1=C(C=C(C=C1)N=C=O)N=C=O",
+        "IUPACName": "2,4-diisocyanato-1-methylbenzene"
+      }
+    ]
+  }
+}

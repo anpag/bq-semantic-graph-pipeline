@@ -28,7 +28,7 @@ WITH unnested_nodes AS (
 validated_nodes AS (
   SELECT u.* 
   FROM unnested_nodes u
-  INNER JOIN ${ref("semantic_ontology_graph", "onto_classes")} dict
+  INNER JOIN ${ref("onto_classes")} dict
     ON TRIM(u.ontology_class) = dict.class_name
 ),
 formatted_nodes AS (
@@ -75,7 +75,7 @@ WITH unnested_nodes AS (
 SELECT 
   file_id, page_num, node_name, ontology_class AS hallucinated_class, properties
 FROM unnested_nodes u
-WHERE TRIM(u.ontology_class) NOT IN (SELECT class_name FROM ${ref("semantic_ontology_graph", "onto_classes")});
+WHERE TRIM(u.ontology_class) NOT IN (SELECT class_name FROM ${ref("onto_classes")});
 
 -- 3. Edge Topology SHACL Validation (Valid Edges)
 INSERT INTO ${ref("global_edges")}

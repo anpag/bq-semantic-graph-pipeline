@@ -1,0 +1,13 @@
+{
+  "PropertyTable": {
+    "Properties": [
+      {
+        "CID": 3672,
+        "MolecularFormula": "C13H18O2",
+        "MolecularWeight": "206.28",
+        "ConnectivitySMILES": "CC(C)CC1=CC=C(C=C1)C(C)C(=O)O",
+        "IUPACName": "2-[4-(2-methylpropyl)phenyl]propanoic acid"
+      }
+    ]
+  }
+}

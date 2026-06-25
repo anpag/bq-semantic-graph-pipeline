@@ -1,0 +1,13 @@
+{
+  "PropertyTable": {
+    "Properties": [
+      {
+        "CID": 6623,
+        "MolecularFormula": "C15H16O2",
+        "MolecularWeight": "228.29",
+        "ConnectivitySMILES": "CC(C)(C1=CC=C(C=C1)O)C2=CC=C(C=C2)O",
+        "IUPACName": "4-[2-(4-hydroxyphenyl)propan-2-yl]phenol"
+      }
+    ]
+  }
+}

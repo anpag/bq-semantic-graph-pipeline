@@ -21,9 +21,9 @@ CREATE OR REPLACE PROPERTY GRAPH ${self()}
     `${dataform.projectConfig.defaultDatabase}.semantic_ontology_graph_data.global_edges` AS global_edges KEY(edge_id)
       SOURCE KEY(source_node_id) REFERENCES global_nodes(node_id)
       DESTINATION KEY(target_node_id) REFERENCES global_nodes(node_id)
-      LABEL CONNECTS,
+      LABEL CONNECTS PROPERTIES (relationship_type, evidence_insight, confidence_score),
     `${dataform.projectConfig.defaultDatabase}.semantic_ontology_graph_data.edge_close_match` AS edge_close_match KEY(edge_id)
       SOURCE KEY(source_node_id) REFERENCES node_aliases(node_id)
       DESTINATION KEY(target_node_id) REFERENCES global_nodes(node_id)
-      LABEL closeMatch
+      LABEL closeMatch PROPERTIES (relationship_type)
   );

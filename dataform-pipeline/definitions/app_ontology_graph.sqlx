@@ -7,9 +7,11 @@ config {
 CREATE OR REPLACE PROPERTY GRAPH ${self()}
   NODE TABLES (
     ${ref("node_classes")} KEY (uri)
+      LABEL OntoClass PROPERTIES (class_name, definition, synonyms, example)
   )
   EDGE TABLES (
     ${ref("edge_rules")} KEY (edge_id)
       SOURCE KEY (source_uri) REFERENCES ${ref("node_classes")} (uri)
       DESTINATION KEY (target_uri) REFERENCES ${ref("node_classes")} (uri)
+      LABEL Relationship PROPERTIES (relationship_type)
   );
