@@ -9,12 +9,12 @@ A reference architecture for automated ingestion and semantic extraction of unst
 
 ## System Architecture Overview
 
-This repository demonstrates a highly scalable, serverless extraction pipeline natively hosted within Google Cloud. By utilizing Dataform, BigQuery Object Tables, and Gemini 2.5 Pro, the system bypasses external orchestration middleware and fragile heuristic parsing scripts.
+This repository demonstrates a highly scalable, serverless extraction pipeline natively hosted within the cloud. By utilizing Dataform, BigQuery Object Tables, and Gemini 2.5 Pro, the system bypasses external orchestration middleware and fragile heuristic parsing scripts.
 
 The architecture decouples the physical database schema from the semantic ontology. It extracts generic graph primitives (Subject-Predicate-Object triples) where the semantic vocabulary is dynamically bounded by open-source ontologies (e.g., OBI, BFO). Topological integrity is enforced relationally rather than at the model-generation layer.
 
 ### Core Technologies
-1. **Google Cloud Storage (GCS) & BigQuery Object Tables:** Provides unified SQL access to raw, unstructured binary objects.
+1. **Cloud Storage (GCS) & BigQuery Object Tables:** Provides unified SQL access to raw, unstructured binary objects.
 2. **Dataform:** Orchestrates idempotency, data transformations, and the execution of the final `CREATE PROPERTY GRAPH` DDL.
 3. **BigQuery ML (`AI.GENERATE`):** Executes multimodal inference directly over GCS URIs to perform document classification and targeted entity extraction.
 4. **BigQuery ML (`ML.GENERATE_EMBEDDING`):** Calculates vector representations for extracted nodes, facilitating retrieval-augmented generation (RAG) during pipeline execution and downstream semantic search operations.
