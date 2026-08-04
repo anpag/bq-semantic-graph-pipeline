@@ -1,0 +1,163 @@
+
+--- Processing Demo Data - Project InstaDust Gloo.pdf ---
+Initializing Vertex AI in semantic-graph-demo/global using gemini-3.5-flash...
+Fetching ontology context from kg_ontology_production...
+Ontology found. Using Strict Extraction...
+Executing extraction via Gemini for Demo Data - Project InstaDust Gloo.pdf...
+Saving extracted triples to raw_extractions_landing...
+Saving unbound knowledge to dlq_semantic_failures...
+EXTRACTION COMPLETE.
+{
+  "extraction_plan": "1. Identify and extract the Project name and Date. 2. Identify and extract the Formulation ID. 3. Identify and extract all ingredients with their respective concentrations. 4. Identify and extract the Test Method, including the substrate details. 5. Identify and extract the Test Results (Dry Shear Strength and Wood Failure). 6. Map all extracted entities to the allowed ontology classes. 7. Establish relationships between the Formulation, Project, Ingredients, Test Method, and Test Results according to the allowed ontology.",
+  "extracted_nodes": [
+    {
+      "entity_name": "InstaDust Gloo",
+      "ontology_class": "Project",
+      "raw_properties": {
+        "date": "2026-06-08"
+      }
+    },
+    {
+      "entity_name": "ID-007",
+      "ontology_class": "Formulation",
+      "raw_properties": {}
+    },
+    {
+      "entity_name": "PVA",
+      "ontology_class": "Ingredient",
+      "raw_properties": {
+        "concentration": "46%"
+      }
+    },
+    {
+      "entity_name": "Water",
+      "ontology_class": "Ingredient",
+      "raw_properties": {
+        "concentration": "45%"
+      }
+    },
+    {
+      "entity_name": "Dibutyl phthalate",
+      "ontology_class": "Ingredient",
+      "raw_properties": {
+        "concentration": "4%"
+      }
+    },
+    {
+      "entity_name": "Polyvinyl alcohol",
+      "ontology_class": "Ingredient",
+      "raw_properties": {
+        "concentration": "4%"
+      }
+    },
+    {
+      "entity_name": "Defoamer",
+      "ontology_class": "Ingredient",
+      "raw_properties": {
+        "concentration": "1%"
+      }
+    },
+    {
+      "entity_name": "Block Sheer Strength Test ASTM D905",
+      "ontology_class": "TestMethod",
+      "raw_properties": {
+        "wood_substrate": "Hard Maple"
+      }
+    },
+    {
+      "entity_name": "Dry Sheer Strength",
+      "ontology_class": "TestResult",
+      "raw_properties": {
+        "value": "3000",
+        "unit": "psi"
+      }
+    },
+    {
+      "entity_name": "Wood Failure",
+      "ontology_class": "TestResult",
+      "raw_properties": {
+        "value": "80",
+        "unit": "%"
+      }
+    }
+  ],
+  "extracted_edges": [
+    {
+      "source_entity": "ID-007",
+      "target_entity": "InstaDust Gloo",
+      "relationship_type": "belongs_to_project",
+      "evidence": "Project: InstaDust Gloo ... Formulation: ID-007"
+    },
+    {
+      "source_entity": "ID-007",
+      "target_entity": "PVA",
+      "relationship_type": "has_ingredient",
+      "evidence": "Ingredients: PVA 46%"
+    },
+    {
+      "source_entity": "ID-007",
+      "target_entity": "Water",
+      "relationship_type": "has_ingredient",
+      "evidence": "Ingredients: Water 45%"
+    },
+    {
+      "source_entity": "ID-007",
+      "target_entity": "Dibutyl phthalate",
+      "relationship_type": "has_ingredient",
+      "evidence": "Ingredients: Dibutyl phthalate 4%"
+    },
+    {
+      "source_entity": "ID-007",
+      "target_entity": "Polyvinyl alcohol",
+      "relationship_type": "has_ingredient",
+      "evidence": "Ingredients: Polyvinyl alcohol 4%"
+    },
+    {
+      "source_entity": "ID-007",
+      "target_entity": "Defoamer",
+      "relationship_type": "has_ingredient",
+      "evidence": "Ingredients: Defoamer 1%"
+    },
+    {
+      "source_entity": "ID-007",
+      "target_entity": "Block Sheer Strength Test ASTM D905",
+      "relationship_type": "undergoes_test",
+      "evidence": "Block Sheer Strength Test ASTM D905 performed on formulation ID-007"
+    },
+    {
+      "source_entity": "Block Sheer Strength Test ASTM D905",
+      "target_entity": "Dry Sheer Strength",
+      "relationship_type": "yields_result",
+      "evidence": "Dry Sheer Strength: 3000 psi"
+    },
+    {
+      "source_entity": "Block Sheer Strength Test ASTM D905",
+      "target_entity": "Wood Failure",
+      "relationship_type": "yields_result",
+      "evidence": "Wood Failure: 80%"
+    },
+    {
+      "source_entity": "Dry Sheer Strength",
+      "target_entity": "ID-007",
+      "relationship_type": "applies_to_formulation",
+      "evidence": "Dry Sheer Strength: 3000 psi measured for ID-007"
+    },
+    {
+      "source_entity": "Wood Failure",
+      "target_entity": "ID-007",
+      "relationship_type": "applies_to_formulation",
+      "evidence": "Wood Failure: 80% measured for ID-007"
+    }
+  ],
+  "unbound_knowledge": [
+    {
+      "insight": "The test was conducted using Hard Maple as the wood substrate.",
+      "category": "Experimental Conditions"
+    },
+    {
+      "insight": "The formulation and testing occurred on or around 2026-06-08.",
+      "category": "Temporal Metadata"
+    }
+  ],
+  "source_file": "Demo Data - Project InstaDust Gloo.pdf"
+}

@@ -1,0 +1,479 @@
+[
+  {
+    "extraction_plan": "1. Identify the Project ('HotDump Gloo') and map it to a Project node.\n2. Identify the Formulations ('HD-001', 'HD-002') and map them to Formulation nodes.\n3. Create Experiment nodes ('Experiment HD-001', 'Experiment HD-002') to link the Project to each Formulation.\n4. Identify all Ingredients and map them to Ingredient nodes, linking them to their respective Formulations with the concentration values captured in the edge evidence.\n5. Identify the Tests performed for each formulation (180 Peel, 90 Peel, T-Peel) and map them to Test nodes linked to the respective Experiments.\n6. Identify the Test Outcomes and map them to Test Outcome nodes, capturing their values and units in raw_properties, and link them to their respective Test nodes.\n7. Capture all metadata, fixed parameters, and adhesive classifications in the unbound_knowledge section.",
+    "extracted_nodes": [
+      {
+        "entity_name": "HotDump Gloo",
+        "ontology_class": "Project",
+        "raw_properties": {}
+      },
+      {
+        "entity_name": "Experiment HD-001",
+        "ontology_class": "Experiment",
+        "raw_properties": {}
+      },
+      {
+        "entity_name": "Experiment HD-002",
+        "ontology_class": "Experiment",
+        "raw_properties": {}
+      },
+      {
+        "entity_name": "HD-001",
+        "ontology_class": "Formulation",
+        "raw_properties": {}
+      },
+      {
+        "entity_name": "HD-002",
+        "ontology_class": "Formulation",
+        "raw_properties": {}
+      },
+      {
+        "entity_name": "Styrene-Isoprene-Styrene",
+        "ontology_class": "Ingredient",
+        "raw_properties": {}
+      },
+      {
+        "entity_name": "Hydrogenated C5/C9 Hydrocarbon Resins",
+        "ontology_class": "Ingredient",
+        "raw_properties": {}
+      },
+      {
+        "entity_name": "USP Grade White Mineral Oil",
+        "ontology_class": "Ingredient",
+        "raw_properties": {}
+      },
+      {
+        "entity_name": "Alpha-methylstyrene (AMS) resin",
+        "ontology_class": "Ingredient",
+        "raw_properties": {}
+      },
+      {
+        "entity_name": "Hindered Phenol (Irganox 1010)",
+        "ontology_class": "Ingredient",
+        "raw_properties": {}
+      },
+      {
+        "entity_name": "180 Peel Test (HD-001)",
+        "ontology_class": "Test",
+        "raw_properties": {
+          "test_type": "Schaelwinkel",
+          "angle": "180 Peel"
+        }
+      },
+      {
+        "entity_name": "90 Peel Test (HD-001)",
+        "ontology_class": "Test",
+        "raw_properties": {
+          "test_type": "Angle of Peel",
+          "angle": "90 Peel"
+        }
+      },
+      {
+        "entity_name": "T-Peel Test (HD-001)",
+        "ontology_class": "Test",
+        "raw_properties": {
+          "test_type": "Angle of Peel",
+          "angle": "T-Peel"
+        }
+      },
+      {
+        "entity_name": "180 Peel Test (HD-002)",
+        "ontology_class": "Test",
+        "raw_properties": {
+          "test_type": "Schaelwinkel",
+          "angle": "180 Peel"
+        }
+      },
+      {
+        "entity_name": "90 Peel Test (HD-002)",
+        "ontology_class": "Test",
+        "raw_properties": {
+          "test_type": "Angle of Peel",
+          "angle": "90 Peel"
+        }
+      },
+      {
+        "entity_name": "T-Peel Test (HD-002)",
+        "ontology_class": "Test",
+        "raw_properties": {
+          "test_type": "Angle of Peel",
+          "angle": "T-Peel"
+        }
+      },
+      {
+        "entity_name": "1.5N/25mm",
+        "ontology_class": "Test Outcome",
+        "raw_properties": {
+          "value": "1.5",
+          "raw_unit": "N/25mm"
+        }
+      },
+      {
+        "entity_name": "1.6N/25mm",
+        "ontology_class": "Test Outcome",
+        "raw_properties": {
+          "value": "1.6",
+          "raw_unit": "N/25mm"
+        }
+      },
+      {
+        "entity_name": "1.4N/25mm",
+        "ontology_class": "Test Outcome",
+        "raw_properties": {
+          "value": "1.4",
+          "raw_unit": "N/25mm"
+        }
+      },
+      {
+        "entity_name": "1.7N",
+        "ontology_class": "Test Outcome",
+        "raw_properties": {
+          "value": "1.7",
+          "raw_unit": "N"
+        }
+      },
+      {
+        "entity_name": "1.3",
+        "ontology_class": "Test Outcome",
+        "raw_properties": {
+          "value": "1.3",
+          "raw_unit": "none"
+        }
+      },
+      {
+        "entity_name": "1.8N/25mm",
+        "ontology_class": "Test Outcome",
+        "raw_properties": {
+          "value": "1.8",
+          "raw_unit": "N/25mm"
+        }
+      }
+    ],
+    "extracted_edges": [
+      {
+        "source_entity": "HotDump Gloo",
+        "target_entity": "Experiment HD-001",
+        "relationship_type": "has experiment",
+        "evidence": "Project HotDump Gloo contains formulation HD-001 evaluated in Experiment HD-001"
+      },
+      {
+        "source_entity": "HotDump Gloo",
+        "target_entity": "Experiment HD-002",
+        "relationship_type": "has experiment",
+        "evidence": "Project HotDump Gloo contains formulation HD-002 evaluated in Experiment HD-002"
+      },
+      {
+        "source_entity": "Experiment HD-001",
+        "target_entity": "HD-001",
+        "relationship_type": "has formulation",
+        "evidence": "Experiment HD-001 evaluates formulation HD-001"
+      },
+      {
+        "source_entity": "Experiment HD-002",
+        "target_entity": "HD-002",
+        "relationship_type": "has formulation",
+        "evidence": "Experiment HD-002 evaluates formulation HD-002"
+      },
+      {
+        "source_entity": "HD-001",
+        "target_entity": "Styrene-Isoprene-Styrene",
+        "relationship_type": "has ingredient",
+        "evidence": "HD-001 contains Styrene-Isoprene-Styrene at 0.3"
+      },
+      {
+        "source_entity": "HD-001",
+        "target_entity": "Hydrogenated C5/C9 Hydrocarbon Resins",
+        "relationship_type": "has ingredient",
+        "evidence": "HD-001 contains Hydrogenated C5/C9 Hydrocarbon Resins at 0.545"
+      },
+      {
+        "source_entity": "HD-001",
+        "target_entity": "USP Grade White Mineral Oil",
+        "relationship_type": "has ingredient",
+        "evidence": "HD-001 contains USP Grade White Mineral Oil at 0.2"
+      },
+      {
+        "source_entity": "HD-001",
+        "target_entity": "Alpha-methylstyrene (AMS) resin",
+        "relationship_type": "has ingredient",
+        "evidence": "HD-001 contains Alpha-methylstyrene (AMS) resin at 0.05"
+      },
+      {
+        "source_entity": "HD-001",
+        "target_entity": "Hindered Phenol (Irganox 1010)",
+        "relationship_type": "has ingredient",
+        "evidence": "HD-001 contains Hindered Phenol (Irganox 1010) at 0.005"
+      },
+      {
+        "source_entity": "HD-002",
+        "target_entity": "Styrene-Isoprene-Styrene",
+        "relationship_type": "has ingredient",
+        "evidence": "HD-002 contains Styrene-Isoprene-Styrene at 0.4"
+      },
+      {
+        "source_entity": "HD-002",
+        "target_entity": "Hydrogenated C5/C9 Hydrocarbon Resins",
+        "relationship_type": "has ingredient",
+        "evidence": "HD-002 contains Hydrogenated C5/C9 Hydrocarbon Resins at 0.45"
+      },
+      {
+        "source_entity": "HD-002",
+        "target_entity": "USP Grade White Mineral Oil",
+        "relationship_type": "has ingredient",
+        "evidence": "HD-002 contains USP Grade White Mineral Oil at 0.11"
+      },
+      {
+        "source_entity": "HD-002",
+        "target_entity": "Alpha-methylstyrene (AMS) resin",
+        "relationship_type": "has ingredient",
+        "evidence": "HD-002 contains Alpha-methylstyrene (AMS) resin at 0.03"
+      },
+      {
+        "source_entity": "HD-002",
+        "target_entity": "Hindered Phenol (Irganox 1010)",
+        "relationship_type": "has ingredient",
+        "evidence": "HD-002 contains Hindered Phenol (Irganox 1010) at 0.01"
+      },
+      {
+        "source_entity": "Experiment HD-001",
+        "target_entity": "180 Peel Test (HD-001)",
+        "relationship_type": "has test",
+        "evidence": "Experiment HD-001 includes 180 Peel Test"
+      },
+      {
+        "source_entity": "Experiment HD-001",
+        "target_entity": "90 Peel Test (HD-001)",
+        "relationship_type": "has test",
+        "evidence": "Experiment HD-001 includes 90 Peel Test"
+      },
+      {
+        "source_entity": "Experiment HD-001",
+        "target_entity": "T-Peel Test (HD-001)",
+        "relationship_type": "has test",
+        "evidence": "Experiment HD-001 includes T-Peel Test"
+      },
+      {
+        "source_entity": "Experiment HD-002",
+        "target_entity": "180 Peel Test (HD-002)",
+        "relationship_type": "has test",
+        "evidence": "Experiment HD-002 includes 180 Peel Test"
+      },
+      {
+        "source_entity": "Experiment HD-002",
+        "target_entity": "90 Peel Test (HD-002)",
+        "relationship_type": "has test",
+        "evidence": "Experiment HD-002 includes 90 Peel Test"
+      },
+      {
+        "source_entity": "Experiment HD-002",
+        "target_entity": "T-Peel Test (HD-002)",
+        "relationship_type": "has test",
+        "evidence": "Experiment HD-002 includes T-Peel Test"
+      },
+      {
+        "source_entity": "180 Peel Test (HD-001)",
+        "target_entity": "1.5N/25mm",
+        "relationship_type": "has outcome",
+        "evidence": "180 Peel Test for HD-001 resulted in 1.5N/25mm"
+      },
+      {
+        "source_entity": "90 Peel Test (HD-001)",
+        "target_entity": "1.4N/25mm",
+        "relationship_type": "has outcome",
+        "evidence": "90 Peel Test for HD-001 resulted in 1.4N/25mm"
+      },
+      {
+        "source_entity": "T-Peel Test (HD-001)",
+        "target_entity": "1.3",
+        "relationship_type": "has outcome",
+        "evidence": "T-Peel Test for HD-001 resulted in 1.3"
+      },
+      {
+        "source_entity": "180 Peel Test (HD-002)",
+        "target_entity": "1.6N/25mm",
+        "relationship_type": "has outcome",
+        "evidence": "180 Peel Test for HD-002 resulted in 1.6N/25mm"
+      },
+      {
+        "source_entity": "90 Peel Test (HD-002)",
+        "target_entity": "1.7N",
+        "relationship_type": "has outcome",
+        "evidence": "90 Peel Test for HD-002 resulted in 1.7N"
+      },
+      {
+        "source_entity": "T-Peel Test (HD-002)",
+        "target_entity": "1.8N/25mm",
+        "relationship_type": "has outcome",
+        "evidence": "T-Peel Test for HD-002 resulted in 1.8N/25mm"
+      }
+    ],
+    "unbound_knowledge": [
+      {
+        "insight": "The Adhesives Class is Styrenic Block Copolymer (SBC) Hot-Melt Pressure-Sensitive Adhesive (HMPSA).",
+        "category": "Adhesive Classification"
+      },
+      {
+        "insight": "The general test type is Peel Strength Test measuring Continuous Peel Force.",
+        "category": "Test Specification"
+      },
+      {
+        "insight": "Fixed parameters for the tests include: Test Material Spec = Leg And Cuff Elastics #271828, Tensile Tester Speed = 300mm/min, Temperature = 73 Fahrenheit.",
+        "category": "Test Parameters"
+      },
+      {
+        "insight": "The sum check for HD-001 ingredients is 1.1, and for HD-002 is 1.",
+        "category": "Formulation Quality Control"
+      }
+    ],
+    "source_file": "Demo Data - Project HotDump Gloo.xlsx"
+  },
+  {
+    "extraction_plan": "Identify the project, experiment, formulation, ingredients, test, and test outcomes from the handwritten document. Map them to the ontology classes and establish relationships.",
+    "extracted_nodes": [
+      {
+        "entity_name": "InstaDust Gloo",
+        "ontology_class": "Project",
+        "raw_properties": {
+          "date": "2026-06-08"
+        }
+      },
+      {
+        "entity_name": "Experiment 2026-06-08",
+        "ontology_class": "Experiment",
+        "raw_properties": {}
+      },
+      {
+        "entity_name": "ID-007",
+        "ontology_class": "Formulation",
+        "raw_properties": {}
+      },
+      {
+        "entity_name": "PVA",
+        "ontology_class": "Ingredient",
+        "raw_properties": {
+          "concentration": "46%"
+        }
+      },
+      {
+        "entity_name": "Water",
+        "ontology_class": "Ingredient",
+        "raw_properties": {
+          "concentration": "45%"
+        }
+      },
+      {
+        "entity_name": "Dibutyl phthalate",
+        "ontology_class": "Ingredient",
+        "raw_properties": {
+          "concentration": "4%"
+        }
+      },
+      {
+        "entity_name": "Polyvinyl alcohol",
+        "ontology_class": "Ingredient",
+        "raw_properties": {
+          "concentration": "4%"
+        }
+      },
+      {
+        "entity_name": "Defoamer",
+        "ontology_class": "Ingredient",
+        "raw_properties": {
+          "concentration": "1%"
+        }
+      },
+      {
+        "entity_name": "Block Shear Strength Test ASTM D905",
+        "ontology_class": "Test",
+        "raw_properties": {
+          "wood_substrate": "Hard Maple"
+        }
+      },
+      {
+        "entity_name": "Dry Shear Strength: 3000 psi",
+        "ontology_class": "Test Outcome",
+        "raw_properties": {
+          "value": "3000",
+          "unit": "psi"
+        }
+      },
+      {
+        "entity_name": "Wood Failure: 80%",
+        "ontology_class": "Test Outcome",
+        "raw_properties": {
+          "value": "80",
+          "unit": "%"
+        }
+      }
+    ],
+    "extracted_edges": [
+      {
+        "source_entity": "InstaDust Gloo",
+        "target_entity": "Experiment 2026-06-08",
+        "relationship_type": "http://example.org/ontology/demo#Project -> has experiment -> http://example.org/ontology/demo#Experiment",
+        "evidence": "Project: InstaDust Gloo, Date: 2026-06-08"
+      },
+      {
+        "source_entity": "Experiment 2026-06-08",
+        "target_entity": "ID-007",
+        "relationship_type": "http://example.org/ontology/demo#Experiment -> has formulation -> http://example.org/ontology/demo#Formulation",
+        "evidence": "Formulation: ID-007"
+      },
+      {
+        "source_entity": "Experiment 2026-06-08",
+        "target_entity": "Block Shear Strength Test ASTM D905",
+        "relationship_type": "http://example.org/ontology/demo#Experiment -> has test -> http://example.org/ontology/demo#Test",
+        "evidence": "Block Shear Strength Test ASTM D905"
+      },
+      {
+        "source_entity": "ID-007",
+        "target_entity": "PVA",
+        "relationship_type": "http://example.org/ontology/demo#Formulation -> has ingredient -> http://example.org/ontology/demo#Ingredient",
+        "evidence": "Ingredients: PVA 46%"
+      },
+      {
+        "source_entity": "ID-007",
+        "target_entity": "Water",
+        "relationship_type": "http://example.org/ontology/demo#Formulation -> has ingredient -> http://example.org/ontology/demo#Ingredient",
+        "evidence": "Ingredients: Water 45%"
+      },
+      {
+        "source_entity": "ID-007",
+        "target_entity": "Dibutyl phthalate",
+        "relationship_type": "http://example.org/ontology/demo#Formulation -> has ingredient -> http://example.org/ontology/demo#Ingredient",
+        "evidence": "Ingredients: Dibutyl phthalate 4%"
+      },
+      {
+        "source_entity": "ID-007",
+        "target_entity": "Polyvinyl alcohol",
+        "relationship_type": "http://example.org/ontology/demo#Formulation -> has ingredient -> http://example.org/ontology/demo#Ingredient",
+        "evidence": "Ingredients: Polyvinyl alcohol 4%"
+      },
+      {
+        "source_entity": "ID-007",
+        "target_entity": "Defoamer",
+        "relationship_type": "http://example.org/ontology/demo#Formulation -> has ingredient -> http://example.org/ontology/demo#Ingredient",
+        "evidence": "Ingredients: Defoamer 1%"
+      },
+      {
+        "source_entity": "Block Shear Strength Test ASTM D905",
+        "target_entity": "Dry Shear Strength: 3000 psi",
+        "relationship_type": "http://example.org/ontology/demo#Test -> has outcome -> http://example.org/ontology/demo#TestOutcome",
+        "evidence": "Dry Shear Strength: 3000 psi"
+      },
+      {
+        "source_entity": "Block Shear Strength Test ASTM D905",
+        "target_entity": "Wood Failure: 80%",
+        "relationship_type": "http://example.org/ontology/demo#Test -> has outcome -> http://example.org/ontology/demo#TestOutcome",
+        "evidence": "Wood Failure: 80%"
+      }
+    ],
+    "unbound_knowledge": [
+      {
+        "insight": "The wood substrate used for the Block Shear Strength Test is Hard Maple.",
+        "category": "Substrate Information"
+      }
+    ],
+    "source_file": "Demo Data - Project InstaDust Gloo.pdf"
+  }
+]
